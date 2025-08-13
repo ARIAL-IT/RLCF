@@ -1,14 +1,17 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from '../../components/layouts/Layout';
 import { AuthGuard } from '../../components/shared/AuthGuard';
+import { ErrorBoundary } from '../../components/shared/ErrorBoundary';
 import { Dashboard } from '../../features/dashboard/Dashboard';
 import { TaskEvaluation } from '../../features/evaluation/TaskEvaluation';
 import { Analytics } from '../../features/analytics/Analytics';
 import { Settings } from '../../features/admin/Settings';
+import { AdminDashboard } from '../../features/admin/AdminDashboard';
 import { UserProfile } from '../../features/auth/UserProfile';
 import { Login } from '../../features/auth/Login';
 import { TaskDetails } from '../../features/tasks/TaskDetails';
 import { Leaderboard } from '../../features/analytics/Leaderboard';
+import { UserRole } from '@/types';
 
 export const router = createBrowserRouter([
   {
@@ -18,9 +21,11 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: (
-      <AuthGuard>
-        <Layout />
-      </AuthGuard>
+      <ErrorBoundary>
+        <AuthGuard>
+          <Layout />
+        </AuthGuard>
+      </ErrorBoundary>
     ),
     children: [
       {
@@ -59,11 +64,16 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin',
+        element: (
+          <AuthGuard requiredRole={UserRole.ADMIN}>
+            <AdminDashboard />
+          </AuthGuard>
+        ),
         children: [
           {
             path: 'settings',
             element: (
-              <AuthGuard requiredRole="admin">
+              <AuthGuard requiredRole={UserRole.ADMIN}>
                 <Settings />
               </AuthGuard>
             ),

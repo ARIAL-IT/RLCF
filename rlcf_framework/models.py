@@ -25,6 +25,14 @@ class TaskType(str, enum.Enum):
     DRAFTING = "DRAFTING"
     RISK_SPOTTING = "RISK_SPOTTING"
     DOCTRINE_APPLICATION = "DOCTRINE_APPLICATION"
+    COMPLIANCE_RISK_SPOTTING = "COMPLIANCE_RISK_SPOTTING"
+    DOC_CLAUSE_CLASSIFICATION = "DOC_CLAUSE_CLASSIFICATION"
+    DRAFTING_GENERATION_PARALLEL = "DRAFTING_GENERATION_PARALLEL"
+    NAMED_ENTITY_BIO = "NAMED_ENTITY_BIO"
+    NLI_ENTAILMENT = "NLI_ENTAILMENT"
+    STATUTORY_RULE_QA = "STATUTORY_RULE_QA"
+    SUMMARIZATION_PAIRS = "SUMMARIZATION_PAIRS"
+    VIOLATION_OUTCOME_PREDICTION = "VIOLATION_OUTCOME_PREDICTION"
 
 
 class TaskStatus(str, enum.Enum):
@@ -136,6 +144,19 @@ class DevilsAdvocateAssignment(Base):
     task_id = Column(Integer, ForeignKey("legal_tasks.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
     instructions = Column(Text)
+    assigned_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    task = relationship("LegalTask")
+    user = relationship("User")
+
+
+class TaskAssignment(Base):
+    __tablename__ = "task_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("legal_tasks.id"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    role = Column(String, default="evaluator")
     assigned_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     task = relationship("LegalTask")

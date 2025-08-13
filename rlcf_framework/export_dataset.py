@@ -1,19 +1,9 @@
-import argparse
 import json
+from typing import List, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from . import models
-from .database import SessionLocal
 from .models import TaskType
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# --- SFT (Supervised Fine-Tuning) Formatters ---
 
 
 def format_sft_summarization(
@@ -175,34 +165,30 @@ PREFERENCE_FORMATTERS = {
     TaskType.DRAFTING: format_preference_drafting,
 }
 
-# --- Main Export Logic ---
-
-
-def export_dataset(task_type: TaskType, export_format: str, output_file: str):
-    db_gen = get_db()
-    db = next(db_gen)  # Get the session
-
-    query = db.query(models.LegalTask).filter(
+async def get_export_data(
+    db: AsyncSession, task_type: TaskType, export_format: str
+) -> List[Dict[str, Any]]:
+    """Recupera e formatta i dati per l'esportazione senza scrivere su file."""
+    query = select(models.LegalTask).filter(
         models.LegalTask.task_type == task_type.value
     )
-    tasks = query.all()
+    result = await db.execute(query)
+    tasks = result.scalars().all()
 
     exported_records = []
 
     for task in tasks:
-        # Get the AI-generated response for this task
-        response = (
-            db.query(models.Response).filter(models.Response.task_id == task.id).first()
+        response_result = await db.execute(
+            select(models.Response).filter(models.Response.task_id == task.id)
         )
+        response = response_result.scalars().first()
         if not response:
             continue
 
-        # Get all feedback for this response
-        feedbacks = (
-            db.query(models.Feedback)
-            .filter(models.Feedback.response_id == response.id)
-            .all()
+        feedback_result = await db.execute(
+            select(models.Feedback).filter(models.Feedback.response_id == response.id)
         )
+        feedbacks = feedback_result.scalars().all()
 
         for feedback in feedbacks:
             record = None
@@ -218,42 +204,5 @@ def export_dataset(task_type: TaskType, export_format: str, output_file: str):
             if record:
                 exported_records.append(record)
 
-    with open(output_file, "w") as f:
-        for record in exported_records:
-            f.write(json.dumps(record) + "\n")
+    return exported_records
 
-    print(f"Exported {len(exported_records)} records to {output_file}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Export RLCF data to fine-tuning datasets."
-    )
-    parser.add_argument(
-        "--task-type",
-        type=str,
-        required=True,
-        choices=[t.value for t in TaskType],
-        help="Type of task to export.",
-    )
-    parser.add_argument(
-        "--format",
-        type=str,
-        required=True,
-        choices=["sft", "preference"],
-        help="Export format (sft or preference).",
-    )
-    parser.add_argument(
-        "--output-file", type=str, required=True, help="Output .jsonl file path."
-    )
-
-    args = parser.parse_args()
-
-    try:
-        task_type_enum = TaskType(args.task_type)
-        export_dataset(task_type_enum, args.format, args.output_file)
-    except ValueError as e:
-        print(f"Error: {e}")
-        parser.print_help()
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")

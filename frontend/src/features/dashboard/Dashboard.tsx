@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { BarChart3, Users, ClipboardCheck, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { TaskCard } from '../../components/shared/TaskCard';
@@ -12,8 +13,9 @@ import type { LegalTask } from '../../types/index';
 import { TaskStatus } from '../../types/index';
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const { user, role } = useAuthStore();
-  const { dashboardMode, setCurrentView } = useUIStore();
+  const { dashboardMode, setSelectedTask } = useUIStore();
   
   // API queries
   const { data: tasks, isLoading: tasksLoading } = useTasks({ 
@@ -24,8 +26,9 @@ export function Dashboard() {
   const { data: userAuthority } = useUserAuthority(user?.id || 0);
 
   const handleTaskSelect = (task: LegalTask) => {
-    // Navigate to task evaluation
-    setCurrentView('task-evaluation');
+    // Store selected task and navigate to evaluation
+    setSelectedTask(task);
+    navigate('/evaluation');
   };
 
   const containerVariants = {

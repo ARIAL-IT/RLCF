@@ -9,7 +9,7 @@ from pydantic import (
 from typing import List, Optional, Dict, Any, Literal
 import datetime
 
-from .models import TaskType  # Import TaskType Enum
+from .models import TaskType, TaskStatus # Import TaskStatus
 from .config import task_settings  # Import the new task_settings
 
 
@@ -196,3 +196,40 @@ class BiasReport(BiasReportBase):
     calculated_at: datetime.datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TaskAssignmentBase(BaseModel):
+    task_id: int
+    user_id: int
+    role: str = "evaluator"
+
+
+class TaskAssignmentCreate(TaskAssignmentBase):
+    pass
+
+
+class TaskAssignment(TaskAssignmentBase):
+    id: int
+    assigned_at: datetime.datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaskStatusUpdate(BaseModel):
+    status: TaskStatus
+
+
+class BulkUserCreate(BaseModel):
+    usernames: List[str]
+
+class ExportRequest(BaseModel):
+    task_type: TaskType
+    export_format: Literal["sft", "preference"]
+
+class SystemMetrics(BaseModel):
+    totalTasks: int
+    totalUsers: int
+    totalFeedback: int
+    averageConsensus: float
+    activeEvaluations: int
+    completionRate: float

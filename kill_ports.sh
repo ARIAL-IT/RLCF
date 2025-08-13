@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PORTS="7860 7861 8000"
+PORTS="7860 7861 8000 3000 3001"
 
 for PORT in $PORTS
 do

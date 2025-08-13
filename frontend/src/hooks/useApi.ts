@@ -12,6 +12,7 @@ import type {
   AggregationResult
 } from '../types/index';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/app/store/auth';
 
 // Task hooks
 export function useTasks(filters?: TaskFilters) {
@@ -45,16 +46,40 @@ export function useCreateTask() {
   });
 }
 
+export function useBatchCreateTasksFromYaml() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (yamlContent: string) => apiClient.tasks.createBatchFromYaml(yamlContent),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Batch tasks created successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to create tasks from YAML');
+    },
+  });
+}
+
 export function useUpdateTaskStatus() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) =>
-      apiClient.tasks.updateStatus(id, status),
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      // Assicurati che il token sia caricato prima di fare la chiamata
+      const token = useAuthStore.getState().token;
+      if (!token) {
+        throw new Error("API token not available");
+      }
+      apiClient.setApiKey(token);
+      return apiClient.tasks.updateStatus(id, status);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast.success('Task status updated!');
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || 'Failed to update task status');
+    }
   });
 }
 
@@ -85,11 +110,15 @@ export function useUser(id: number) {
 }
 
 export function useUserAuthority(id: number) {
+  // Backend non espone /users/{id}/authority; deriviamo dal dettaglio utente
   return useQuery({
     queryKey: ['user-authority', id],
-    queryFn: () => apiClient.users.getAuthority(id),
+    queryFn: async () => {
+      const user = await apiClient.users.get(id);
+      return { authority_score: user.authority_score } as { authority_score: number };
+    },
     enabled: !!id,
-    staleTime: 1 * 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   });
 }
 
@@ -107,6 +136,41 @@ export function useUpdateUserCredentials() {
   });
 }
 
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (username: string) => apiClient.users.create(username),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User created successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to create user');
+    },
+  });
+}
+
+export function useAddCredential() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, credential }: { id: number; credential: Record<string, any> }) =>
+      apiClient.users.updateCredentials(id, credential),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['user', variables.id] });
+      toast.success('Credential added successfully!');
+    },
+  });
+}
+
+export function useSetApiKey() {
+  return useMutation({
+    mutationFn: (token: string | null) => {
+      apiClient.setApiKey(token);
+      return Promise.resolve();
+    },
+  });
+}
+
 // Feedback hooks
 export function useFeedback(responseId?: number, userId?: number) {
   return useQuery({
@@ -118,11 +182,14 @@ export function useFeedback(responseId?: number, userId?: number) {
 
 export function useSubmitFeedback() {
   const queryClient = useQueryClient();
-  
+  const { token } = useAuthStore.getState(); // Get token for API key
+
   return useMutation({
     mutationKey: ['submit-feedback'],
-    mutationFn: ({ responseId, feedbackData }: { responseId: number; feedbackData: FeedbackData }) =>
-      apiClient.feedback.submit(responseId, feedbackData),
+    mutationFn: ({ responseId, feedbackData }: { responseId: number; feedbackData: FeedbackData }) => {
+      apiClient.setApiKey(token);
+      return apiClient.feedback.submit(responseId, feedbackData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['feedback'] });
@@ -165,6 +232,42 @@ export function useTaskAnalytics(taskId: number) {
     queryFn: () => apiClient.analytics.getTaskAnalytics(taskId),
     enabled: !!taskId,
     staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+
+export function useExportDataset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { task_type: TaskType, export_format: string }) => {
+      const token = useAuthStore.getState().token;
+      if (!token) {
+        throw new Error("API token not available");
+      }
+      apiClient.setApiKey(token);
+      return apiClient.export.dataset(data);
+    },
+    onSuccess: (blob, variables) => {
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${variables.task_type}_${variables.export_format}.jsonl`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      toast.success('Dataset exported successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || 'Failed to export dataset');
+    }
+  });
+}
+
+export function useTaskDistribution() {
+  return useQuery({
+    queryKey: ['task-distribution'],
+    queryFn: () => apiClient.analytics.getTaskDistribution(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

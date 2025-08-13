@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DashboardMode } from '../../types/index';
+import type { DashboardMode, LegalTask } from '../../types/index';
 import { UserRole } from '../../types/index';
 
 interface UIState {
@@ -36,6 +36,9 @@ interface UIState {
   // Views
   currentView: string;
   viewPreferences: Record<string, any>;
+  
+  // Selected items
+  selectedTask: LegalTask | null;
 }
 
 interface Notification {
@@ -84,6 +87,9 @@ interface UIActions {
   setCurrentView: (view: string) => void;
   setViewPreference: (view: string, preferences: any) => void;
   
+  // Selected items
+  setSelectedTask: (task: LegalTask | null) => void;
+  
   // Utility
   reset: () => void;
 }
@@ -113,6 +119,7 @@ const initialState: UIState = {
   taskFilters: initialTaskFilters,
   currentView: 'dashboard',
   viewPreferences: {},
+  selectedTask: null,
 };
 
 export const useUIStore = create<UIStore>((set, get) => ({
@@ -233,6 +240,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
       },
     });
   },
+
+  // Selected items
+  setSelectedTask: (task) => set({ selectedTask: task }),
 
   // Utility
   reset: () => set(initialState),

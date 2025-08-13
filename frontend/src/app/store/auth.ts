@@ -14,7 +14,7 @@ interface AuthState {
 }
 
 interface AuthActions {
-  login: (credentials: { email: string; password: string }) => Promise<void>;
+  login: (user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
@@ -36,77 +36,25 @@ export const useAuthStore = create<AuthStore>()(
       error: null,
 
       // Actions
-      login: async (credentials) => {
-        set({ isLoading: true, error: null });
+      login: (user) => {
+        const role = determineUserRole(user);
+        const token = 'supersecretkey'; // Use RLCF API key
+        localStorage.setItem('auth_token', token);
+        apiClient.setApiKey(token);
         
-        try {
-          // Mock authentication since RLCF backend doesn't have auth endpoints yet
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-          
-          // Create mock user based on credentials
-          let mockUser: User;
-          let role: UserRole;
-          
-          if (credentials.email === 'admin@rlcf.ai' && credentials.password === 'admin123') {
-            mockUser = {
-              id: 1,
-              username: 'admin',
-              email: 'admin@rlcf.ai',
-              authority_score: 0.95,
-              track_record_score: 0.9,
-              baseline_credential_score: 0.8
-            };
-            role = UserRole.ADMIN;
-          } else if (credentials.email === 'evaluator@rlcf.ai' && credentials.password === 'eval123') {
-            mockUser = {
-              id: 2,
-              username: 'evaluator',
-              email: 'evaluator@rlcf.ai',
-              authority_score: 0.75,
-              track_record_score: 0.7,
-              baseline_credential_score: 0.6
-            };
-            role = UserRole.EVALUATOR;
-          } else if (credentials.email === 'viewer@rlcf.ai' && credentials.password === 'view123') {
-            mockUser = {
-              id: 3,
-              username: 'viewer',
-              email: 'viewer@rlcf.ai',
-              authority_score: 0.3,
-              track_record_score: 0.2,
-              baseline_credential_score: 0.1
-            };
-            role = UserRole.VIEWER;
-          } else {
-            throw new Error('Invalid credentials');
-          }
-          
-          const token = 'supersecretkey'; // Use RLCF API key
-          localStorage.setItem('auth_token', token);
-          
-          set({
-            user: mockUser,
-            token,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-            role,
-          });
-        } catch (error: any) {
-          const errorMessage = error?.message || 'Login failed';
-          set({
-            isLoading: false,
-            error: errorMessage,
-            isAuthenticated: false,
-            user: null,
-            token: null,
-          });
-          throw error;
-        }
+        set({
+          user,
+          token,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+          role,
+        });
       },
 
       logout: () => {
         localStorage.removeItem('auth_token');
+        apiClient.setApiKey(null);
         
         set({
           user: null,
@@ -173,15 +121,18 @@ export const useAuthStore = create<AuthStore>()(
 
 // Helper function to determine user role based on authority score and credentials
 function determineUserRole(user: User): UserRole {
-  // This is a simplified role determination - adjust based on your needs
-  if (user.credentials?.admin === true) {
+  // Determine role based on authority score and user characteristics
+  // Admin users typically have very high authority and system access
+  if (user.username === 'admin' || user.authority_score >= 0.9) {
     return UserRole.ADMIN;
   }
   
-  if (user.authority_score > 0.7) {
+  // Evaluators are users with good authority scores who can evaluate tasks
+  if (user.authority_score >= 0.4) {
     return UserRole.EVALUATOR;
   }
   
+  // Everyone else is a viewer
   return UserRole.VIEWER;
 }
 

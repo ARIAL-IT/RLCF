@@ -36,18 +36,17 @@ async def _aggregate_and_save_result(db: AsyncSession, task_id: int) -> dict:
     Returns:
         dict: Aggregation result or error information
     """
-    async with db.begin():
-        try:
-            result = await aggregation_engine.aggregate_with_uncertainty(db, task_id)
-            if "error" not in result:
-                # Store the aggregation result (implementation would depend on your needs)
-                # For now, we just return the result
-                pass
-            return result
-        except Exception as e:
-            # Log error but don't re-raise to allow other operations to continue
-            print(f"Error in aggregation for task {task_id}: {e}")
-            return {"error": str(e)}
+    try:
+        result = await aggregation_engine.aggregate_with_uncertainty(db, task_id)
+        if "error" not in result:
+            # Store the aggregation result (implementation would depend on your needs)
+            # For now, we just return the result
+            pass
+        return result
+    except Exception as e:
+        # Log error but don't re-raise to allow other operations to continue
+        print(f"Error in aggregation for task {task_id}: {e}")
+        return {"error": str(e)}
 
 
 async def _calculate_and_store_consistency(db: AsyncSession, task_id: int):
@@ -58,18 +57,17 @@ async def _calculate_and_store_consistency(db: AsyncSession, task_id: int):
         db: AsyncSession for database operations
         task_id: ID of the task to calculate consistency for
     """
-    async with db.begin():
-        try:
-            # Get aggregation result first
-            result = await aggregation_engine.aggregate_with_uncertainty(db, task_id)
-            if "error" in result:
-                return
+    try:
+        # Get aggregation result first
+        result = await aggregation_engine.aggregate_with_uncertainty(db, task_id)
+        if "error" in result:
+            return
 
-            await post_processing.calculate_and_store_consistency(db, task_id, result)
-            await post_processing.calculate_and_store_correctness(db, task_id)
-        except Exception as e:
-            print(f"Error in consistency calculation for task {task_id}: {e}")
-            await db.rollback()
+        await post_processing.calculate_and_store_consistency(db, task_id, result)
+        await post_processing.calculate_and_store_correctness(db, task_id)
+    except Exception as e:
+        print(f"Error in consistency calculation for task {task_id}: {e}")
+        await db.rollback()
 
 
 async def _calculate_and_store_bias(db: AsyncSession, task_id: int):
@@ -80,31 +78,30 @@ async def _calculate_and_store_bias(db: AsyncSession, task_id: int):
         db: AsyncSession for database operations
         task_id: ID of the task to calculate bias for
     """
-    async with db.begin():
-        try:
-            # Get participants for this task
-            result = await db.execute(
-                select(models.User)
-                .join(models.Feedback)
-                .join(models.Response)
-                .filter(models.Response.task_id == task_id)
-                .distinct()
+    try:
+        # Get participants for this task
+        result = await db.execute(
+            select(models.User)
+            .join(models.Feedback)
+            .join(models.Response)
+            .filter(models.Response.task_id == task_id)
+            .distinct()
+        )
+        participants = result.scalars().all()
+
+        for user in participants:
+            bias_score = await bias_analysis.calculate_professional_clustering_bias(
+                db, user.id, task_id
             )
-            participants = result.scalars().all()
+            db_report = models.BiasReport(
+                task_id=task_id,
+                user_id=user.id,
+                bias_type="PROFESSIONAL_CLUSTERING",
+                bias_score=bias_score,
+            )
+            db.add(db_report)
 
-            for user in participants:
-                bias_score = await bias_analysis.calculate_professional_clustering_bias(
-                    db, user.id, task_id
-                )
-                db_report = models.BiasReport(
-                    task_id=task_id,
-                    user_id=user.id,
-                    bias_type="PROFESSIONAL_CLUSTERING",
-                    bias_score=bias_score,
-                )
-                db.add(db_report)
-
-            await db.commit()
-        except Exception as e:
-            print(f"Error in bias calculation for task {task_id}: {e}")
-            await db.rollback()
+        await db.commit()
+    except Exception as e:
+        print(f"Error in bias calculation for task {task_id}: {e}")
+        await db.rollback()

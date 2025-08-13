@@ -12,10 +12,10 @@ We present Reinforcement Learning from Community Feedback (RLCF), a novel alignm
 
 Traditional RLHF approaches fail to capture the inherent complexity of legal reasoning, which requires:
 
-* **Epistemic Pluralism** : recognition of multiple valid interpretations
-* **Dynamic Authority** : expertise that evolves with demonstrated competence
-* **Dialectical Preservation** : maintenance of productive disagreement
-* **Transparent Accountability** : Traceable reasoning paths
+- **Epistemic Pluralism**: Recognition of multiple valid interpretations
+- **Dynamic Authority**: Expertise that evolves with demonstrated competence
+- **Dialectical Preservation**: Maintenance of productive disagreement
+- **Transparent Accountability**: Traceable reasoning paths
 
 ### 1.2 Core Principles
 
@@ -460,10 +460,10 @@ The system generates contextual critical prompts based on legal task types to gu
 
 **Base Critical Questions:**
 
-- "What are the potential weaknesses in this reasoning?"
-- "Are there alternative interpretations that weren't considered?"
-- "How might this conclusion be challenged by opposing counsel?"
-- "What additional evidence would strengthen or weaken this position?"
+1. "What are the potential weaknesses in this reasoning?"
+2. "Are there alternative interpretations that weren't considered?"
+3. "How might this conclusion be challenged by opposing counsel?"
+4. "What additional evidence would strengthen or weaken this position?"
 
 **Task-Specific Extensions:**
 
@@ -749,7 +749,7 @@ $$
 b_6 = \frac{|\text{anchor\_followers}|}{|\text{subsequent\_responses}|}
 $$
 
-where anchor is defined as the dominant position in the first 3 responses.
+where the anchor is defined as the dominant position in the first 3 responses.
 
 **Implementation Architecture:**
 

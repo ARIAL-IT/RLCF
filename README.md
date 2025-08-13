@@ -1,15 +1,24 @@
 # Reinforcement Learning from Community Feedback (RLCF) - Framework Implementation
 
-Questo repository contiene l'implementazione Python del framework **Reinforcement Learning from Community Feedback (RLCF)**, come descritto nel paper scientifico. Il progetto è una piattaforma di ricerca ad alte prestazioni per studiare e validare sistemi di IA Giuridica attraverso meccanismi di validazione distribuita, punteggi di autorità dinamici e aggregazione che preserva l'incertezza.
+Questo repository contiene l'implementazione Python del framework **Reinforcement Learning from Community Feedback (RLCF)**, come descritto nel paper scientifico **RLCF.md**. Il progetto è una piattaforma di ricerca ad alte prestazioni per studiare e validare sistemi di Artificial Legal Intelligence (ALI) attraverso meccanismi di validazione distribuita, dynamic authority scoring e uncertainty-preserving aggregation.
+
+## 📄 Documentazione Scientifica
+
+- **Paper Teorico**: [RLCF.md](RLCF.md) - Framework teorico completo con formule matematiche e algoritmi
+- **Implementazione**: Questo repository - Implementazione Python production-ready
+- **Connessione Teoria-Pratica**: Ogni modulo del codice referenzia precisamente le sezioni del paper RLCF.md
 
 ## 🚀 Caratteristiche Principali
 
-- **Architettura Async**: Framework completamente asincrono basato su FastAPI e SQLAlchemy async per prestazioni ottimali
-- **Sicurezza**: Valutazione sicura delle formule tramite asteval invece di eval()
-- **Atomicità**: Operazioni di aggregazione atomiche e resilienti ai fallimenti
-- **Testabilità**: Suite di test completa con pytest e mocking avanzato
-- **Code Quality**: Formattazione automatica con Black e linting con Ruff
-- **Dependency Injection**: Sistema centralizzato di iniezione delle dipendenze per migliorare testabilità
+- **🧠 Theoretical Rigor**: Implementazione diretta degli algoritmi descritti in RLCF.md con referenze precise
+- **⚡ Architettura Async**: Framework completamente asincrono basato su FastAPI e SQLAlchemy async
+- **🔒 Sicurezza**: Valutazione sicura delle formule tramite asteval invece di eval()
+- **⚛️ Atomicità**: Operazioni di aggregazione atomiche e resilienti ai fallimenti
+- **🧪 Testabilità**: Suite di test completa con pytest e mocking avanzato
+- **📏 Code Quality**: Formattazione automatica con Black e linting con Ruff
+- **🏗️ Dependency Injection**: Sistema centralizzato di iniezione delle dipendenze
+- **🎯 Academic-Ready**: Codice documentato per pubblicazione scientifica e peer review
+- **⚖️ Constitutional AI**: Implementa il Constitutional Governance Model (RLCF.md Sezione 5.1)
 
 ## Architettura e Workflow dei Componenti
 
@@ -55,48 +64,79 @@ Il framework è costruito su un'architettura modulare che mappa direttamente i c
 - **Implementazione:** Un file `model_config.yaml` definisce tutti i parametri del modello, come i pesi di autorità (α, β, γ), il fattore di decadimento (λ) e le regole per calcolare le credenziali. Questo permette ai ricercatori di testare diverse teorie senza modificare il codice.
 - **Modulo Chiave:** `config.py` carica e valida questo file utilizzando Pydantic, rendendo la configurazione accessibile globalmente in modo sicuro.
 
-### 2. Modulo di Autorità (`authority_module.py`) - 🔒 Async & Secure
+### 2. Dynamic Authority Scoring (`authority_module.py`) - 🔒 Async & Secure
 
-- **Concetto (Paper):** Il **Modello di Punteggio di Autorità Dinamica** (Sez. 2.1).
-- **Implementazione:** Questo modulo funge da motore di calcolo asincrono e sicuro che applica le regole definite in `model_config.yaml`.
-  - `calculate_baseline_credentials`: Implementa la **Sez. 2.2**, calcolando **B_u** applicando dinamicamente le funzioni di punteggio (mappa o formula) e i pesi (w_i) definiti nel YAML. **Sicurezza**: Utilizza `asteval` per valutazione sicura delle formule invece di `eval()`.
-  - `update_track_record`: Implementa l'**Eq. 3 (Sez. 2.3)**, aggiornando lo storico delle performance **T_u** con una media mobile esponenziale.
-  - `update_authority_score`: Implementa l'**Eq. 1 (Sez. 2.1)**, calcolando il punteggio di autorità finale **A_u** come combinazione lineare dei suoi componenti.
-  - **Nuove Feature**: Tutte le funzioni sono async e utilizzano transazioni database atomiche.
+- **Teoria (RLCF.md):** Dynamic Authority Scoring Model (Sezione 2.1) e Principle of Dynamic Authority (Sezione 1.2)
+- **Implementazione:** Motore di calcolo asincrono che implementa le formule matematiche esatte del paper:
+  - `calculate_baseline_credentials()`: **RLCF.md Sez. 2.2** - Formula B_u = Σ(w_i · f_i(c_{u,i})) con valutazione sicura asteval
+  - `update_track_record()`: **RLCF.md Sez. 2.3** - Exponential smoothing T_u(t) = λ·T_u(t-1) + (1-λ)·Q_u(t)
+  - `update_authority_score()`: **RLCF.md Sez. 2.1** - Formula A_u(t) = α·B_u + β·T_u(t-1) + γ·P_u(t)
+  - **Sicurezza**: asteval per safe formula evaluation, transazioni atomiche
+  - **Constitutional Compliance**: Segue i principi di Auctoritas Dynamica
 
-### 3. Motore di Aggregazione (`aggregation_engine.py`) - ⚡ Async & Optimized
+### 3. Uncertainty-Preserving Aggregation (`aggregation_engine.py`) - ⚡ Algorithm 1 Implementation
 
-- **Concetto (Paper):** L'**Algoritmo di Aggregazione con Preservazione dell'Incertezza** (Sez. 3.1).
+- **Teoria (RLCF.md):** Algorithm 1: RLCF Aggregation with Uncertainty Preservation (Sezione 3.1)
+- **Implementazione:** Implementazione diretta dell'algoritmo centrale del framework:
+  - `calculate_disagreement()`: **RLCF.md Sez. 3.2** - Formula δ = -(1/log|P|) Σ ρ(p)log ρ(p) per Shannon entropy
+  - `aggregate_with_uncertainty()`: **RLCF.md Sez. 3.1** - Algorithm 1 completo con threshold τ=0.4
+  - `extract_positions_from_feedback()`: **RLCF.md Sez. 3.2** - Position extraction per disagreement quantification
+  - `identify_consensus_and_contention()`: **RLCF.md Sez. 3.3** - Expert disagreement analysis
+  - **Uncertainty Preservation**: Implementa Principle of Preserved Uncertainty (Incertitudo Conservata)
+  - **Dialectical Nature**: Preserva la natura dialettica del ragionamento legale
+
+### 4. Extended Bias Detection Framework - 🔍 6-Dimensional Analysis
+
+- **Teoria (RLCF.md):** Extended Bias Detection Framework (Sezione 4.3) - 6 dimensioni vs 4 teoriche
+- **Implementazione Superiore:** Il codice estende la teoria con implementazione avanzata:
+  - `bias_analysis.py`: **RLCF.md Sez. 4.3** - Framework completo con formula B_total = √(Σ b_i²)
+    - Demographic bias (b1), Professional clustering (b2), Temporal drift (b3)
+    - Geographic concentration (b4), Confirmation bias (b5), Anchoring bias (b6)
+    - `calculate_authority_correctness_correlation()`: **RLCF.md Sez. 2.1** - Validazione autorità
+  - `generate_bias_mitigation_recommendations()`: **RLCF.md Sez. 5.1** - Constitutional compliance
+  - `devils_advocate.py`: **RLCF.md Sez. 3.5** - Probabilistic assignment P(advocate) = min(0.1, 3/|E|)
+  - **Constitutional Governance**: Bias detection e mandatory disclosure automatici
+
+### 5. Task Orchestration & Constitutional Governance - 🎯 Business Logic Layer
+
+- **Teoria (RLCF.md):** Task Lifecycle Management (Sezione 4.1) e Constitutional Governance Model (Sezione 5.1)
 - **Implementazione:**
-  - `calculate_disagreement`: Implementa l'**Eq. 4 (Sez. 3.2)**, quantificando il disaccordo **δ** tramite l'entropia di Shannon normalizzata.
-  - `aggregate_with_uncertainty`: Implementa l'**Algoritmo 1**, orchestrando il processo di aggregazione asincrona. Se il disaccordo calcolato supera la soglia **τ** (definita nel config), produce un output strutturato che preserva le diverse posizioni (Sez. 3.3).
-  - **Nuove Feature**: Completamente asincrono, pattern di aggregazione ottimizzati e analisi avanzata dei pattern di ragionamento.
+  - `services/task_service.py`: **RLCF.md Sez. 4.1** - Complete task workflows con orchestrazione atomica:
+    - `orchestrate_task_aggregation()`: Decouples business logic da API endpoints
+    - `_aggregate_and_save_result()`: **RLCF.md Sez. 3.1** - Algorithm 1 execution
+    - `_calculate_and_store_consistency()`: **RLCF.md Sez. 2.3** - Quality metrics Q_u(t)
+    - `_calculate_and_store_bias()`: **RLCF.md Sez. 4.3** - 6-dimensional bias detection
+  - `task_handlers/`: **RLCF.md Sez. 3.6** - Dynamic Task Handler System (Strategy pattern)
+    - 9 legal task types supportati con logica domain-specific
+    - Polymorphic architecture per extensibility
+  - `training_scheduler.py`: **RLCF.md Sez. 5.2** - Periodic Training Schedule (14-day cycle)
+  - **Constitutional AI**: Automated accountability reporting e transparency compliance
 
-### 4. Moduli di Governance e Analisi - 🔍 Advanced Analytics
+## 📚 Connessione Teoria-Implementazione
 
-- **Concetto (Paper):** I **Meccanismi di Garanzia della Qualità** (Sez. 4) e la necessità di un processo auditabile.
-- **Implementazione:**
-  - `post_processing.py`: Logica asincrona per calcolare il **punteggio di coerenza** e correttezza di un utente dopo aggregazione.
-  - `bias_analysis.py`: Implementa il **Framework di Rilevamento Bias** (Sez. 4.3) completamente asincrono con:
-    - Calcolo del **clustering professionale (b_2)**
-    - Analisi bias demografico, temporale, geografico
-    - Bias di conferma e ancoraggio
-    - Correlazione autorità-correttezza
-  - `models.py`: Definisce un `Enum` `TaskStatus` per gestire esplicitamente il ciclo di vita di un task (OPEN, BLIND_EVALUATION, AGGREGATED, CLOSED).
-  - **Nuove Feature**: Analisi bias multi-dimensionale e reporting automatico.
+### Mapping Diretto Paper → Codice
 
-### 5. Livello di Servizi e API (`services/` e `main.py`) - 🎯 Atomic & Resilient
+| **RLCF.md Section** | **Modulo Python** | **Funzione/Classe** | **Formula/Algoritmo** |
+|---------------------|-------------------|---------------------|----------------------|
+| **1.2 - Principi Costituzionali** | `*` | Tutti i moduli | 4 principi fondamentali |
+| **2.1 - Dynamic Authority Scoring** | `authority_module.py` | `update_authority_score()` | A_u(t) = α·B_u + β·T_u + γ·P_u |
+| **2.2 - Baseline Credentials** | `authority_module.py` | `calculate_baseline_credentials()` | B_u = Σ(w_i · f_i(c_{u,i})) |
+| **2.3 - Track Record Evolution** | `authority_module.py` | `update_track_record()` | T_u(t) = λ·T_u(t-1) + (1-λ)·Q_u(t) |
+| **3.1 - Algorithm 1** | `aggregation_engine.py` | `aggregate_with_uncertainty()` | Complete algorithm |
+| **3.2 - Disagreement Quantification** | `aggregation_engine.py` | `calculate_disagreement()` | δ = -(1/log|P|) Σ ρ(p)log ρ(p) |
+| **3.5 - Devil's Advocate System** | `devils_advocate.py` | `DevilsAdvocateAssigner` | P(advocate) = min(0.1, 3/|E|) |
+| **3.6 - Dynamic Task Handler** | `task_handlers/` | `BaseTaskHandler` + 9 handlers | Strategy pattern |
+| **4.1 - Task Lifecycle** | `services/task_service.py` | `orchestrate_task_aggregation()` | Business logic orchestration |
+| **4.3 - Extended Bias Detection** | `bias_analysis.py` | `calculate_total_bias()` | B_total = √(Σ b_i²) - 6 dimensions |
+| **5.1 - Constitutional Governance** | `main.py, bias_analysis.py` | Constitutional framework | Algorithmic principles |
+| **5.2 - Periodic Training** | `training_scheduler.py` | `PeriodicTrainingScheduler` | 14-day cycle, 4 phases |
 
-- **Concetto (Paper):** Un'architettura robusta e un processo di governance chiaro (Sez. 5).
-- **Implementazione:**
-  - `services/task_service.py`: Logica di business asincrona con **operazioni atomiche**:
-    - `orchestrate_task_aggregation`: Workflow completo resiliente ai fallimenti
-    - `_aggregate_and_save_result`: Operazione atomica di aggregazione  
-    - `_calculate_and_store_consistency`: Operazione atomica di calcolo coerenza
-    - `_calculate_and_store_bias`: Operazione atomica di analisi bias
-  - `main.py`: API FastAPI completamente asincrona con endpoint ottimizzati e dependency injection centralizzata.
-  - `dependencies.py`: **Nuovo**: Sistema centralizzato di dependency injection per migliorare testabilità e manutenibilità.
-  - **Nuove Feature**: Transazioni atomiche, gestione errori granulare, alta disponibilità.
+### Academic Rigor
+- **Docstring References**: Ogni funzione cita precisamente le sezioni RLCF.md
+- **Mathematical Precision**: Implementazione esatta delle formule teoriche
+- **Algorithmic Fidelity**: Algorithm 1 implementato line-by-line
+- **Reproducibility**: Configurazione YAML per esperimenti riproducibili
+- **Peer Review Ready**: Codice documentato per submission accademica
 
 ## 🧪 Qualità e Testing
 
@@ -134,19 +174,27 @@ black .
 ruff check . --fix
 ```
 
-## Workflow Sperimentale (Come Usare il Framework)
+## 🔬 Workflow Sperimentale Scientifico
 
-1.  **Configurare il Modello:** Definire i parametri dell'esperimento in `model_config.yaml`.
-2.  **Creare Utenti e Credenziali:** Usare `POST /users/` e `POST /users/{user_id}/credentials/` per popolare la comunità. Le credenziali devono corrispondere ai tipi definiti nel config (es. `type: "PROFESSIONAL_FIELD"`, `value: "Diritto Civile"`).
-3.  **Creare un Task Legale:** Usare `POST /tasks/` per creare una nuova query.
-4.  **Avviare la Valutazione:** L'amministratore dell'esperimento imposta lo stato del task su `BLIND_EVALUATION` usando `POST /tasks/{task_id}/status`.
-5.  **Raccogliere Feedback:** I partecipanti inviano il loro feedback tramite `POST /responses/{response_id}/feedback/`. L'API impedirà l'invio se il task non è nella fase corretta.
-6.  **Aggregare i Risultati:** L'amministratore imposta lo stato su `AGGREGATED`. Questa azione triggera il `task_service` che:
-    a. Esegue `aggregate_with_uncertainty`.
-    b. Esegue `calculate_and_store_consistency`.
-    c. Esegue `calculate_professional_clustering_bias` per ogni partecipante.
-7.  **Analizzare i Risultati:** I ricercatori possono interrogare `GET /tasks/{task_id}/result/` per ottenere l'output aggregato e analizzare i dati salvati nelle tabelle `feedback` e `bias_reports`.
-8.  **Iterare:** I ricercatori possono modificare la configurazione del modello tramite `PUT /config/model` e avviare un nuovo esperimento per testare diverse ipotesi.
+### Approccio Research-First
+Il framework è progettato per supportare ricerca accademica rigorosa con:
+- **Riproducibilità Garantita**: Configurazione YAML per parametri sperimentali
+- **Data Collection Validata**: Strutture dati ottimizzate per analisi statistica
+- **Statistical Power**: Support per power analysis e sample size calculation
+- **Export Scientifici**: Dati esportabili in formati standard (CSV, JSON, LaTeX)
+
+### Workflow di Ricerca
+
+1. **🔧 Experimental Design**: Definire ipotesi e parametri in `model_config.yaml` secondo RLCF.md
+2. **👥 Community Setup**: Popolare database con partecipanti usando endpoint REST API
+3. **📋 Task Creation**: Creare legal tasks con ground truth separation automatica
+4. **🔍 Blind Evaluation Phase**: Attivare blind evaluation per prevenire anchoring bias
+5. **📊 Data Collection**: Raccogliere feedback con timestamp e metadata per analisi temporali
+6. **⚗️ Aggregation Execution**: Eseguire Algorithm 1 con uncertainty preservation automatica
+7. **🔬 Statistical Analysis**: Analizzare risultati con metriche di reliability e validity
+8. **📈 Bias Assessment**: Generare report bias 6-dimensionali con raccomandazioni
+9. **📄 Scientific Export**: Esportare dati in formati publication-ready per peer review
+10. **🔄 Iterative Refinement**: Modificare parametri e ripetere per validation e replication
 
 ## 🚀 Setup e Installazione
 
@@ -196,16 +244,35 @@ python app_interface.py
 - **ReDoc**: `http://127.0.0.1:8000/redoc`  
 - **Gradio Interface**: `http://127.0.0.1:7860`
 
-### Verifica Installazione
+### Verifica Installazione e Academic Setup
 ```bash
-# Esegui test di base
-pytest tests/test_authority_module.py -v
+# Test core algorithms (Academic validation)
+pytest tests/test_authority_module.py tests/test_aggregation_engine.py -v
 
-# Verifica linting
+# Test constitutional compliance
+pytest tests/test_bias_analysis.py -v
+
+# Verifica implementazione Algorithm 1
+pytest tests/test_uncertainty_preservation.py -v
+
+# Code quality per peer review
 ruff check .
-
-# Verifica formattazione
 black --check .
+
+# Verifica referenze RLCF.md nei docstring
+grep -r "References:" rlcf_framework/
+```
+
+### 🎓 Academic Usage
+```bash
+# Genera dataset per pubblicazione
+curl -X GET "http://127.0.0.1:8000/export/dataset?format=scientific"
+
+# Esporta metriche per paper
+curl -X GET "http://127.0.0.1:8000/metrics/authority_correlation"
+
+# Report bias per methodology section
+curl -X GET "http://127.0.0.1:8000/bias/task/1/report"
 ```
 
 ## 📈 Performance Features
@@ -216,10 +283,24 @@ black --check .
 - **Lazy Loading**: Caricamento asincrono dei dati secondo necessità
 - **Efficient Querying**: Query ottimizzate con SQLAlchemy async
 
-## 🔒 Sicurezza
+## 🔒 Sicurezza e Constitutional AI
 
-- **Safe Evaluation**: asteval invece di eval() per valutazione sicura formule
+### Sicurezza Tecnica
+- **Safe Evaluation**: asteval invece di eval() per valutazione sicura formule (RLCF.md Sez. 2.2)
 - **API Key Protection**: Endpoint admin protetti da API key
 - **Input Validation**: Validazione Pydantic per tutti gli input
 - **SQL Injection Protection**: SQLAlchemy ORM protegge da SQL injection
 - **Connection Security**: Connessioni database sicure con parametri controllati
+
+### Constitutional Governance (RLCF.md Sezione 5.1)
+- **Transparency Principle**: Tutti i processi sono auditabili e reproducibili
+- **Bias Detection**: Mandatory disclosure automatico dei bias rilevati
+- **Community Benefit**: Maximization del beneficio della comunità
+- **Academic Freedom**: Preservazione della libertà accademica nelle valutazioni
+- **Expert Knowledge Primacy**: Primato della conoscenza esperta con oversight democratico
+
+### Accountability Reporting (RLCF.md Sezione 5.3)
+- **Automated Reports**: Report di accountability ogni 14 giorni
+- **Transparency Metrics**: Metriche complete per ogni ciclo di training
+- **Constitutional Compliance**: Validazione automatica dei principi costituzionali
+- **Audit Trail**: Tracciabilità completa di tutte le decisioni e processi

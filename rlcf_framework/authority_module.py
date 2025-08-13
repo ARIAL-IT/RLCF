@@ -22,9 +22,14 @@ def _get_evaluator():
 async def calculate_baseline_credentials(db: AsyncSession, user_id: int) -> float:
     """
     Calcola il punteggio delle credenziali di base (B_u) per un utente.
-    Implementa la formula di somma ponderata descritta nella Sez. 2.2 del paper.
-    Le regole, i pesi (w_i) e le funzioni di punteggio (c_i) sono caricate dinamicamente
-    dal file model_config.yaml, rendendo il motore generico e configurabile.
+    
+    Implementa la formula di somma ponderata definita in RLCF.md Sezione 2.2:
+    B_u = Σ(w_i · f_i(c_{u,i})) dove w_i sono i pesi configurabili e f_i sono 
+    le funzioni di scoring per ogni tipo di credenziale c_i.
+    
+    Le regole, i pesi (w_i) e le funzioni di punteggio (f_i) sono caricate dinamicamente
+    dal file model_config.yaml seguendo il framework configurabile descritto in RLCF.md 
+    Sezione 2.4.
 
     Args:
         db: AsyncSession for database operations
@@ -32,6 +37,10 @@ async def calculate_baseline_credentials(db: AsyncSession, user_id: int) -> floa
 
     Returns:
         float: Calculated baseline credential score
+        
+    References:
+        RLCF.md Section 2.2 - Baseline Credentials Formulation
+        RLCF.md Section 2.4 - Dynamic Configuration System
     """
     result = await db.execute(select(models.User).filter(models.User.id == user_id))
     user = result.scalar_one_or_none()
@@ -79,6 +88,11 @@ async def calculate_baseline_credentials(db: AsyncSession, user_id: int) -> floa
 async def calculate_quality_score(db: AsyncSession, feedback: models.Feedback) -> float:
     """
     Calcola il punteggio di qualità aggregato (Q_u(t)) per un singolo feedback.
+    
+    Implementa la componente Q_u(t) del Dynamic Authority Scoring Model definito in 
+    RLCF.md Sezione 2.3, aggregando 4 metriche di qualità:
+    Q_u(t) = (1/4)Σ(q_k) dove q_k rappresenta peer validation, accuracy, 
+    consistency e community helpfulness.
 
     Args:
         db: AsyncSession for database operations
@@ -86,6 +100,9 @@ async def calculate_quality_score(db: AsyncSession, feedback: models.Feedback) -
 
     Returns:
         float: Calculated quality score
+        
+    References:
+        RLCF.md Section 2.3 - Track Record Evolution Model
     """
     result = await db.execute(
         select(models.FeedbackRating).filter(
@@ -109,6 +126,12 @@ async def update_track_record(
 ) -> float:
     """
     Aggiorna lo storico delle performance (T_u) di un utente.
+    
+    Implementa l'algoritmo di exponential smoothing definito in RLCF.md Sezione 2.3:
+    T_u(t) = λ·T_u(t-1) + (1-λ)·Q_u(t)
+    
+    Usa λ=0.95 (decay factor) per bilanciare storia passata con performance recente,
+    garantendo che il track record evolva gradualmente mantenendo memoria storica.
 
     Args:
         db: AsyncSession for database operations
@@ -117,6 +140,9 @@ async def update_track_record(
 
     Returns:
         float: Updated track record score
+        
+    References:
+        RLCF.md Section 2.3 - Track Record Evolution Model
     """
     result = await db.execute(select(models.User).filter(models.User.id == user_id))
     user = result.scalar_one_or_none()
@@ -138,6 +164,17 @@ async def update_authority_score(
 ) -> float:
     """
     Aggiorna il punteggio di autorità complessivo (A_u) di un utente.
+    
+    Implementa il Dynamic Authority Scoring Model definito in RLCF.md Sezione 2.1:
+    A_u(t) = α·B_u + β·T_u(t-1) + γ·P_u(t)
+    
+    Con distribuzione ottimale dei pesi empiricamente derivata:
+    - α=0.3 (baseline credentials weight)
+    - β=0.5 (historical performance weight) 
+    - γ=0.2 (recent performance weight)
+    
+    Questa combinazione lineare bilancia credenziali iniziali, track record storico
+    e performance recente secondo il Principle of Dynamic Authority.
 
     Args:
         db: AsyncSession for database operations
@@ -146,6 +183,10 @@ async def update_authority_score(
 
     Returns:
         float: Updated authority score
+        
+    References:
+        RLCF.md Section 2.1 - Dynamic Authority Scoring Model
+        RLCF.md Section 1.2 - Principle of Dynamic Authority (Auctoritas Dynamica)
     """
     result = await db.execute(select(models.User).filter(models.User.id == user_id))
     user = result.scalar_one_or_none()

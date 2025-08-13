@@ -6,7 +6,19 @@ from typing import List
 
 
 class DevilsAdvocateAssigner:
-    """Gestisce l'assegnazione casuale di devil's advocates."""
+    """
+    Gestisce l'assegnazione casuale di devil's advocates.
+    
+    Implementa il Devil's Advocate System descritto in RLCF.md Sezione 3.5,
+    usando probabilistic assignment con P(advocate) = min(0.1, 3/|E|) per
+    garantire critical evaluation bilanciata. Il sistema previene groupthink
+    e bias confirmation attraverso assegnazione casuale e prompt critici
+    task-specific.
+    
+    References:
+        RLCF.md Section 3.5 - Devil's Advocate System
+        RLCF.md Section 4.2 - Blind Feedback Protocol
+    """
 
     def __init__(self, advocate_percentage: float = 0.1):
         self.advocate_percentage = advocate_percentage
@@ -14,7 +26,21 @@ class DevilsAdvocateAssigner:
     async def assign_advocates_for_task(self, db: AsyncSession, task_id: int) -> List[int]:
         """
         Assegna casualmente devil's advocates per un task.
-        Ritorna lista di user_id assegnati comme advocates.
+        
+        Implementa l'algoritmo probabilistico definito in RLCF.md Sezione 3.5:
+        P(advocate) = min(0.1, 3/|E|) dove |E| è il numero di evaluatori.
+        Garantisce critical evaluation mantenendo bilanciamento statistico
+        per prevenire bias confirmation e groupthink.
+        
+        Args:
+            db: Database session per operazioni asincrone
+            task_id: ID del task per cui assegnare advocates
+            
+        Returns:
+            List[int]: Lista di user_id assegnati come devil's advocates
+            
+        References:
+            RLCF.md Section 3.5 - Devil's Advocate System
         """
         # Trova tutti gli utenti che potrebbero valutare questo task
         # In produzione, useresti criteri più sofisticati
@@ -76,6 +102,21 @@ class DevilsAdvocateAssigner:
     def generate_critical_prompts(self, task_type: str) -> List[str]:
         """
         Genera prompt specifici per tipo di task per guidare la critica costruttiva.
+        
+        Implementa il task-specific critical prompt system da RLCF.md Sezione 3.5,
+        fornendo guidance mirata per ogni tipo di task legale. I prompt sono
+        progettati per stimolare critical thinking costruttivo senza compromettere
+        la qualità del feedback.
+        
+        Args:
+            task_type: Tipo di task legale per cui generare prompts critici
+            
+        Returns:
+            List[str]: Lista di prompt critici task-specific e generali
+            
+        References:
+            RLCF.md Section 3.5 - Devil's Advocate System
+            RLCF.md Section 3.6 - Dynamic Task Handler System
         """
         base_prompts = [
             "What are the potential weaknesses in this reasoning?",

@@ -10,6 +10,11 @@ async def calculate_professional_clustering_bias(
 ) -> float:
     """
     Calculate user bias as deviation from their professional group's consensus.
+    
+    Implements the professional clustering bias detection (b2) from the
+    6-dimensional bias framework described in RLCF.md Section 4.3. This extended
+    implementation goes beyond the 4 theoretical dimensions to detect echo chambers
+    within professional specializations.
 
     Args:
         db (AsyncSession): Database session
@@ -18,6 +23,9 @@ async def calculate_professional_clustering_bias(
 
     Returns:
         float: Bias score (1.0 if user disagrees with group, 0.0 otherwise)
+        
+    References:
+        RLCF.md Section 4.3 - Extended Bias Detection Framework (6 dimensions)
     """
     # 1. Find user's professional group (e.g., 'Civil Law')
     result = await db.execute(
@@ -68,6 +76,10 @@ async def calculate_professional_clustering_bias(
 async def calculate_demographic_bias(db: AsyncSession, task_id: int) -> float:
     """
     Calculate demographic bias by analyzing correlation between demographic characteristics and positions taken.
+    
+    Implements the demographic correlation component (b1) of the 6-dimensional 
+    bias detection framework from RLCF.md Section 4.3. Uses experience grouping
+    and homogeneity analysis to detect demographic clustering in feedback patterns.
 
     Args:
         db (AsyncSession): Database session
@@ -75,6 +87,9 @@ async def calculate_demographic_bias(db: AsyncSession, task_id: int) -> float:
 
     Returns:
         float: Demographic bias score (higher values indicate more bias)
+        
+    References:
+        RLCF.md Section 4.3 - Extended Bias Detection Framework (6 dimensions)
     """
     result = await db.execute(
         select(models.Feedback)
@@ -309,13 +324,29 @@ async def calculate_anchoring_bias(db: AsyncSession, task_id: int) -> float:
 async def calculate_total_bias(db: AsyncSession, task_id: int) -> dict:
     """
     Calculate all types of bias and return a complete report.
+    
+    Implements the complete 6-dimensional bias detection framework described in
+    RLCF.md Section 4.3, extending beyond the theoretical 4 dimensions to include
+    confirmation and anchoring bias. The total bias is calculated using the
+    Euclidean norm formula:
+    
+    B_total = √(Σ b_i²) where i ∈ {demographic, professional, temporal, 
+                                 geographic, confirmation, anchoring}
+    
+    This implementation provides superior bias detection compared to the
+    theoretical framework specification.
 
     Args:
         db (AsyncSession): Database session
         task_id (int): ID of the task to analyze
 
     Returns:
-        dict: Complete bias analysis report with individual bias scores and totals
+        dict: Complete bias analysis report with individual bias scores,
+              total bias calculation, and dominant bias type identification
+              
+    References:
+        RLCF.md Section 4.3 - Extended Bias Detection Framework (6 dimensions)
+        RLCF.md Section 2.4 - Multi-Objective Reward Function
     """
     b1 = await calculate_demographic_bias(db, task_id)
 
@@ -367,12 +398,25 @@ async def calculate_total_bias(db: AsyncSession, task_id: int) -> dict:
 def generate_bias_mitigation_recommendations(bias_report: dict) -> list:
     """
     Generate recommendations to mitigate identified biases.
+    
+    Implements the bias mitigation strategies aligned with the Constitutional
+    Governance Model from RLCF.md Section 5.1. Uses threshold-based triggering
+    of specific interventions, following the "bias detection and mandatory disclosure"
+    constitutional principle.
+    
+    The recommendations include both automatic actions and manual steps with
+    effectiveness scoring, supporting the algorithmic constitutional framework.
 
     Args:
         bias_report (dict): Bias analysis report containing individual bias scores
 
     Returns:
-        list: List of mitigation recommendations with priority and implementation details
+        list: List of mitigation recommendations with priority levels and
+              implementation details following constitutional compliance requirements
+              
+    References:
+        RLCF.md Section 5.1 - Constitutional Governance Model
+        RLCF.md Section 4.2 - Bias Detection Framework
     """
     recommendations = []
 
@@ -432,12 +476,26 @@ def generate_bias_mitigation_recommendations(bias_report: dict) -> list:
 async def calculate_authority_correctness_correlation(db: AsyncSession) -> float:
     """
     Calculate Pearson correlation between users' authority scores and their aggregated correctness scores.
+    
+    Implements validation metric for the Dynamic Authority Scoring Model from
+    RLCF.md Section 2.1. High correlation validates that authority scores A_u(t)
+    effectively predict performance, confirming the Principle of Dynamic Authority
+    (Auctoritas Dynamica).
+    
+    This metric is used in the accountability reporting system described in
+    RLCF.md Section 5.3 to ensure authority scores maintain predictive validity.
 
     Args:
         db (AsyncSession): Database session
 
     Returns:
-        float: Correlation coefficient between authority and correctness scores
+        float: Correlation coefficient between authority and correctness scores,
+               used for authority model validation
+               
+    References:
+        RLCF.md Section 2.1 - Dynamic Authority Scoring Model
+        RLCF.md Section 1.2 - Principle of Dynamic Authority (Auctoritas Dynamica)
+        RLCF.md Section 5.3 - Transparency Reporting
     """
     result = await db.execute(select(models.User))
     users = result.scalars().all()

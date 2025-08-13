@@ -9,9 +9,18 @@ class ClassificationHandler(BaseTaskHandler):
     """
     A concrete task handler for classification tasks.
 
-    This handler implements the specific logic for aggregating feedback,
-    calculating consistency, and formatting data for export related to
-    classification tasks.
+    This handler implements the Strategy pattern for legal document classification,
+    one of the 9 supported task types in the RLCF framework. It provides domain-specific
+    logic for aggregating multi-label classification feedback using authority-weighted
+    voting and calculating consistency through exact label set matching.
+    
+    The handler supports complex legal categorization scenarios where documents
+    may belong to multiple categories simultaneously, implementing the
+    polymorphic task handler architecture described in RLCF.md Section 3.6.
+    
+    References:
+        RLCF.md Section 3.6 - Dynamic Task Handler System
+        RLCF.md Section 4.1 - Task Lifecycle Management
     """
 
     def __init__(self, db: AsyncSession, task: models.LegalTask):
@@ -28,12 +37,21 @@ class ClassificationHandler(BaseTaskHandler):
         """
         Aggregates feedback for classification tasks.
 
-        It calculates a weighted count of validated labels based on the
-        authority score of the feedback authors.
+        Implements authority-weighted label aggregation where each user's label set
+        is weighted by their dynamic authority score A_u(t) from RLCF.md Section 2.1.
+        Uses tuple-based grouping to handle multi-label scenarios and determines
+        consensus through weighted voting.
+        
+        The algorithm preserves label set combinations rather than individual labels
+        to maintain semantic coherence in complex legal categorizations.
 
         Returns:
             A dictionary containing the consensus answer (primary labels)
-            and detailed weighted label counts.
+            and detailed weighted label counts for transparency.
+            
+        References:
+            RLCF.md Section 2.1 - Dynamic Authority Scoring Model
+            RLCF.md Section 3.1 - Uncertainty-Preserving Aggregation Algorithm
         """
         feedbacks = await self.get_feedbacks()
         weighted_labels = Counter()

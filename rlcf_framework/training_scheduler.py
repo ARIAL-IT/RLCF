@@ -8,6 +8,20 @@ import numpy as np
 class PeriodicTrainingScheduler:
     """
     Gestisce il ciclo di training periodico di 14 giorni.
+    
+    Implementa il Periodic Training Schedule definito in RLCF.md Sezione 5.2
+    con 4 fasi distinte del ciclo di 14 giorni:
+    1. Collection (giorni 1-7): Feedback gathering e blind evaluation
+    2. Validation (giorni 8-10): Expert review e bias analysis
+    3. Training (giorni 11-12): Model update e testing
+    4. Accountability (giorni 13-14): Report generation e publication
+    
+    Il scheduler garantisce trasparenza e auditabilità attraverso automated
+    accountability reporting seguendo i principi del Constitutional Governance Model.
+    
+    References:
+        RLCF.md Section 5.2 - Periodic Training Schedule
+        RLCF.md Section 5.1 - Constitutional Governance Model
     """
 
     def __init__(self, db: Session):

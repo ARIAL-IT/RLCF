@@ -10,9 +10,18 @@ class QAHandler(BaseTaskHandler):
     """
     Handler for Question Answering tasks.
 
-    This handler implements the specific logic for aggregating feedback,
-    calculating consistency, and formatting data for export related to
-    question answering tasks.
+    Implements the Strategy pattern for legal question answering, the most common
+    task type in the RLCF framework. This handler provides sophisticated logic for
+    aggregating textual answers using semantic similarity, authority weighting,
+    and confidence estimation.
+    
+    The handler supports complex legal reasoning scenarios where multiple valid
+    interpretations may exist, implementing uncertainty preservation through
+    alternative answer tracking and reasoning pattern analysis.
+    
+    References:
+        RLCF.md Section 3.6 - Dynamic Task Handler System
+        RLCF.md Section 3.1 - Uncertainty-Preserving Aggregation Algorithm
     """
 
     def __init__(self, db: AsyncSession, task: models.LegalTask):
@@ -29,12 +38,24 @@ class QAHandler(BaseTaskHandler):
         """
         Aggregates feedback for QA tasks.
 
-        Calculates weighted scores for answers based on authority scores
-        and determines consensus answer with confidence metrics.
+        Implements sophisticated textual answer aggregation using normalized answer
+        grouping and authority-weighted scoring. The algorithm:
+        1. Normalizes answers for semantic grouping
+        2. Applies authority weights A_u(t) from RLCF.md Section 2.1
+        3. Preserves alternative interpretations for uncertainty analysis
+        4. Calculates confidence based on weight distribution
+        
+        This approach maintains the dialectical nature of legal reasoning by
+        preserving minority positions and reasoning patterns, implementing the
+        Principle of Preserved Uncertainty.
 
         Returns:
             A dictionary containing the consensus answer, confidence score,
-            alternative answers, and detailed aggregation results.
+            alternative answers with support percentages, and detailed aggregation results.
+            
+        References:
+            RLCF.md Section 2.1 - Dynamic Authority Scoring Model
+            RLCF.md Section 1.2 - Principle of Preserved Uncertainty (Incertitudo Conservata)
         """
         feedbacks = await self.get_feedbacks()
         if not feedbacks:

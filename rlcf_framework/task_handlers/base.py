@@ -9,9 +9,18 @@ class BaseTaskHandler(ABC):
     """
     Abstract base class for handling different types of legal tasks.
 
-    This class defines the interface that all concrete task handlers must implement,
-    ensuring a consistent structure for task-specific logic such as feedback aggregation,
-    consistency calculation, and data formatting for export.
+    This class implements the Strategy pattern described in RLCF.md Section 3.6,
+    defining the interface that all concrete task handlers must implement.
+    Each handler encapsulates domain-specific logic for the 9 supported legal task types,
+    ensuring consistent structure for feedback aggregation, consistency calculation,
+    and data formatting for export.
+    
+    The polymorphic architecture enables extensible task type support while maintaining
+    uniform interfaces for the aggregation engine and bias analysis systems.
+    
+    References:
+        RLCF.md Section 3.6 - Dynamic Task Handler System
+        RLCF.md Section 3.1 - Uncertainty-Preserving Aggregation Algorithm
     """
 
     def __init__(self, db: AsyncSession, task: models.LegalTask):
@@ -42,11 +51,21 @@ class BaseTaskHandler(ABC):
         """
         Aggregates feedback specific to the task type.
 
-        This method should encapsulate the logic for combining individual feedback
-        entries into a single, aggregated result, potentially considering authority scores.
+        Implements task-specific logic for the Uncertainty-Preserving Aggregation 
+        Algorithm described in RLCF.md Section 3.1. Each handler applies 
+        authority-weighted scoring and domain-specific aggregation rules to combine
+        individual feedback entries into consensus results.
+        
+        The aggregation preserves uncertainty and disagreement as information rather
+        than noise, following the Principle of Preserved Uncertainty.
 
         Returns:
-            A dictionary representing the aggregated feedback result.
+            A dictionary representing the aggregated feedback result with consensus,
+            confidence metrics, and alternative positions when disagreement exists.
+            
+        References:
+            RLCF.md Section 3.1 - Uncertainty-Preserving Aggregation Algorithm
+            RLCF.md Section 1.2 - Principle of Preserved Uncertainty (Incertitudo Conservata)
         """
         pass
 

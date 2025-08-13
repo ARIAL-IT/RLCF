@@ -9,15 +9,24 @@ from collections import Counter, defaultdict
 
 def calculate_disagreement(weighted_feedback: dict) -> float:
     """
-    Quantifica il livello di disaccordo (delta) usando l'entropia di Shannon normalizzata.
-    Implementa l'Eq. 4 del paper (Sez. 3.2).
-    L'input è un dizionario di posizioni ponderate per l'autorità degli utenti che le supportano.
+    Quantifica il livello di disaccordo (δ) usando l'entropia di Shannon normalizzata.
+    
+    Implementa la formula di disagreement quantification definita in RLCF.md Sezione 3.2:
+    δ = -(1/log|P|) Σ ρ(p)log ρ(p)
+    
+    dove P è il set di posizioni possibili e ρ(p) è la probabilità ponderata 
+    per autorità di ogni posizione p. La normalizzazione per log|P| garantisce
+    che δ ∈ [0,1] indipendentemente dal numero di posizioni.
 
     Args:
         weighted_feedback: Dictionary mapping positions to authority weights
 
     Returns:
-        float: Normalized disagreement score using Shannon entropy
+        float: Normalized disagreement score δ using Shannon entropy
+        
+    References:
+        RLCF.md Section 3.2 - Disagreement Quantification
+        RLCF.md Section 3.1 - Uncertainty-Preserving Aggregation Algorithm
     """
     if not weighted_feedback or len(weighted_feedback) <= 1:
         return 0.0
@@ -40,12 +49,21 @@ def calculate_disagreement(weighted_feedback: dict) -> float:
 def extract_positions_from_feedback(feedbacks):
     """
     Estrae le posizioni distinte dai feedback con i loro sostenitori.
+    
+    Implementa l'estrazione di posizioni P per il calcolo del disagreement δ
+    come definito in RLCF.md Sezione 3.2. Ogni posizione è identificata dalla
+    serializzazione ordinata dei dati del feedback per garantire consistenza
+    nella quantificazione dell'incertezza.
 
     Args:
         feedbacks: List of feedback objects
 
     Returns:
-        dict: Dictionary mapping position keys to list of supporters
+        dict: Dictionary mapping position keys to list of supporters with
+              authority scores for weighted probability calculation
+              
+    References:
+        RLCF.md Section 3.2 - Disagreement Quantification
     """
     position_supporters = defaultdict(list)
 
@@ -133,14 +151,29 @@ def extract_reasoning_patterns(feedbacks):
 
 async def aggregate_with_uncertainty(db: AsyncSession, task_id: int) -> dict:
     """
-    Implementazione completa dell'Algoritmo 1 con preservazione dell'incertezza.
+    Implementazione completa dell'Algorithm 1: RLCF Aggregation with Uncertainty Preservation.
+    
+    Implementa l'algoritmo centrale definito in RLCF.md Sezione 3.1 che:
+    1. Calcola pesi di autorità per ogni feedback usando A_u(t)
+    2. Quantifica il disagreement δ tramite entropia di Shannon normalizzata
+    3. Se δ > τ (soglia=0.4), produce output uncertainty-preserving completo
+    4. Altrimenti, restituisce output di consenso semplificato
+    
+    Il threshold τ=0.4 è ottimizzato empiricamente per bilanciare preservazione
+    dell'incertezza con usabilità pratica del sistema.
 
     Args:
         db: AsyncSession for database operations
         task_id: ID of the task to aggregate feedback for
 
     Returns:
-        dict: Aggregated result with uncertainty information
+        dict: Aggregated result with uncertainty information following the
+              uncertainty-preserving output structure from RLCF.md Section 3.3
+              
+    References:
+        RLCF.md Section 3.1 - Algorithm 1: RLCF Aggregation with Uncertainty Preservation
+        RLCF.md Section 3.2 - Disagreement Quantification
+        RLCF.md Section 3.3 - Uncertainty-Preserving Output Structure
     """
     result = await db.execute(
         select(models.LegalTask).filter(models.LegalTask.id == task_id)

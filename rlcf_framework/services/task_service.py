@@ -7,13 +7,24 @@ async def orchestrate_task_aggregation(db: AsyncSession, task_id: int):
     """
     Orchestra il processo completo di aggregazione, post-processing e analisi bias per un task.
 
-    This function is now atomic and resilient to failures. Each major operation
-    (aggregation, consistency, bias) manages its own transaction to ensure
-    partial failures don't prevent other operations from completing.
+    Implementa l'alta-level business logic per complete task workflows come descritto
+    in RLCF.md Sezione 4.1. Questa funzione decouples business logic dagli API endpoints
+    e gestisce l'orchestrazione atomica di:
+    1. Uncertainty-preserving aggregation (Algorithm 1)
+    2. Consistency calculation e correctness scoring
+    3. Bias analysis e reporting
+    
+    Each major operation manages its own transaction per garantire resilience
+    a partial failures, seguendo i principi del Constitutional Governance Model.
 
     Args:
         db: AsyncSession for database operations
         task_id: ID of the task to orchestrate aggregation for
+        
+    References:
+        RLCF.md Section 4.1 - Task Lifecycle Management
+        RLCF.md Section 3.1 - Algorithm 1: RLCF Aggregation with Uncertainty Preservation
+        RLCF.md Section 4.3 - Extended Bias Detection Framework
     """
     # 1. Aggregate and save result - atomic operation
     await _aggregate_and_save_result(db, task_id)
@@ -28,13 +39,20 @@ async def orchestrate_task_aggregation(db: AsyncSession, task_id: int):
 async def _aggregate_and_save_result(db: AsyncSession, task_id: int) -> dict:
     """
     Atomic operation to calculate and save aggregation result.
+    
+    Esegue l'Algorithm 1: RLCF Aggregation with Uncertainty Preservation
+    per il task specificato, gestendo authority weighting, disagreement
+    quantification e uncertainty preservation come definito in RLCF.md Sezione 3.1.
 
     Args:
         db: AsyncSession for database operations
         task_id: ID of the task to aggregate
 
     Returns:
-        dict: Aggregation result or error information
+        dict: Aggregation result with uncertainty information or error
+        
+    References:
+        RLCF.md Section 3.1 - Algorithm 1: RLCF Aggregation with Uncertainty Preservation
     """
     try:
         result = await aggregation_engine.aggregate_with_uncertainty(db, task_id)
@@ -52,10 +70,19 @@ async def _aggregate_and_save_result(db: AsyncSession, task_id: int) -> dict:
 async def _calculate_and_store_consistency(db: AsyncSession, task_id: int):
     """
     Atomic operation to calculate and store consistency scores.
+    
+    Calcola consistency scores per ogni feedback rispetto al risultato aggregato
+    e correctness scores rispetto al ground truth quando disponibile.
+    Implementa le metriche di qualità Q_u(t) usate nel Dynamic Authority Scoring Model
+    descritto in RLCF.md Sezione 2.3.
 
     Args:
         db: AsyncSession for database operations
         task_id: ID of the task to calculate consistency for
+        
+    References:
+        RLCF.md Section 2.3 - Track Record Evolution Model
+        RLCF.md Section 2.4 - Multi-Objective Reward Function
     """
     try:
         # Get aggregation result first
@@ -73,10 +100,19 @@ async def _calculate_and_store_consistency(db: AsyncSession, task_id: int):
 async def _calculate_and_store_bias(db: AsyncSession, task_id: int):
     """
     Atomic operation to calculate and store bias reports.
+    
+    Implementa il 6-dimensional bias detection framework descritto in RLCF.md
+    Sezione 4.3, calcolando bias scores per ogni partecipante e generando
+    BiasReport entities per mandatory disclosure seguendo i principi del
+    Constitutional Governance Model.
 
     Args:
         db: AsyncSession for database operations
         task_id: ID of the task to calculate bias for
+        
+    References:
+        RLCF.md Section 4.3 - Extended Bias Detection Framework (6 dimensions)
+        RLCF.md Section 5.1 - Constitutional Governance Model
     """
     try:
         # Get participants for this task

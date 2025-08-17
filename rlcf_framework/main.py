@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Security, Query, Response
+from fastapi import FastAPI, Depends, HTTPException, Security, Query, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from pydantic import ValidationError, create_model
@@ -15,6 +15,7 @@ from . import (
     services,
     export_dataset,
 )
+from .ai_service import openrouter_service, AIModelConfig, cleanup_ai_service
 from .database import SessionLocal
 from .models import TaskStatus, TaskType  # Import TaskType Enum
 from .dependencies import get_db, get_model_settings, get_task_settings
@@ -30,6 +31,22 @@ import yaml
 from .database import engine
 import os
 import numpy
+import pandas as pd
+import io
+import logging
+import traceback
+import json
+
+# Configure detailed logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('rlcf_detailed.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # --- Sicurezza Semplice per l'Endpoint di Configurazione ---
 # In produzione, usare OAuth2 o un sistema più robusto.
@@ -81,6 +98,12 @@ async def startup_event():
                 session.add(new_admin)
                 await session.commit()
                 print("Default admin user created.")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup resources on shutdown."""
+    await cleanup_ai_service()
 
 
 # --- Endpoint di Amministrazione / Governance ---
@@ -220,30 +243,256 @@ async def create_legal_task(
     task: schemas.LegalTaskCreate, db: AsyncSession = Depends(get_db)
 ):
     db_task = models.LegalTask(
-        task_type=task.task_type.value, input_data=task.input_data
+        task_type=task.task_type.value, 
+        input_data=task.input_data,
+        status=models.TaskStatus.BLIND_EVALUATION.value
     )
     db.add(db_task)
     await db.commit()
     await db.refresh(db_task)
 
-    # Create a dummy response with flexible output_data
-    # In a real scenario, this would come from an AI model
-    dummy_output_data = {
-        "message": "AI response placeholder for " + task.task_type.value
-    }
+    # Try to generate realistic AI response, fallback to placeholder if needed
+    try:
+        # Default model config for now - TODO: make configurable
+        default_model_config = AIModelConfig(
+            name="openai/gpt-3.5-turbo",
+            api_key=os.getenv("OPENROUTER_API_KEY", ""),
+            temperature=0.7
+        )
+        
+        if default_model_config.api_key:
+            ai_response_data = await openrouter_service.generate_response(
+                task.task_type.value, 
+                task.input_data, 
+                default_model_config
+            )
+        else:
+            # Fallback to placeholder if no API key
+            ai_response_data = {
+                "message": f"AI response placeholder for {task.task_type.value} (no API key configured)",
+                "task_type": task.task_type.value,
+                "is_placeholder": True
+            }
+    except Exception as e:
+        logger.warning(f"Failed to generate AI response: {e}")
+        ai_response_data = {
+            "message": f"AI response placeholder for {task.task_type.value} (generation failed)",
+            "task_type": task.task_type.value,
+            "error": str(e),
+            "is_placeholder": True
+        }
+    
     db_response = models.Response(
-        task_id=db_task.id, output_data=dummy_output_data, model_version="dummy-0.1"
+        task_id=db_task.id, 
+        output_data=ai_response_data, 
+        model_version=ai_response_data.get("model_name", "placeholder-1.0")
     )
     db.add(db_response)
-    db_task.status = (
-        models.TaskStatus.BLIND_EVALUATION.value
-    )  # Imposta lo stato iniziale per la valutazione
     await db.commit()
     await db.refresh(db_task, attribute_names=["responses"])
     for response in db_task.responses:
         await db.refresh(response, attribute_names=["feedback"])
 
     return db_task
+
+
+@app.get("/tasks/all", tags=["Database Viewer"])
+async def get_all_tasks(
+    limit: int = Query(None, description="Limit number of results"),
+    status: str = Query(None, description="Filter by task status"),
+    task_type: str = Query(None, description="Filter by task type"),
+    offset: int = Query(None, description="Offset for pagination"),
+    user_id: int = Query(None, description="Filter by user ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all tasks with optional filtering and pagination."""
+    query = select(models.LegalTask)
+    
+    # Apply filters
+    if status:
+        query = query.filter(models.LegalTask.status == status)
+    if task_type:
+        query = query.filter(models.LegalTask.task_type == task_type)
+    
+    # Apply ordering for consistent pagination
+    query = query.order_by(models.LegalTask.created_at.desc())
+    
+    # Apply pagination
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
+    
+    result = await db.execute(query)
+    tasks = result.scalars().all()
+    
+    # Convert to dict to avoid lazy loading issues and ensure consistent response
+    return [
+        {
+            "id": task.id,
+            "task_type": task.task_type,
+            "input_data": task.input_data,
+            "ground_truth_data": task.ground_truth_data,
+            "status": task.status,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "responses": []  # Empty to avoid async issues
+        }
+        for task in tasks
+    ]
+
+
+@app.get("/tasks/{task_id}", response_model=schemas.LegalTask, tags=["Tasks"])
+async def get_task(task_id: int, db: AsyncSession = Depends(get_db)):
+    """Get a single task by ID."""
+    result = await db.execute(
+        select(models.LegalTask)
+        .options(selectinload(models.LegalTask.responses))
+        .filter(models.LegalTask.id == task_id)
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
+@app.put("/tasks/{task_id}", response_model=schemas.LegalTask, tags=["Tasks"])
+async def update_task(
+    task_id: int,
+    task_update: schemas.LegalTaskCreate,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(get_api_key),
+):
+    """Update a task."""
+    result = await db.execute(select(models.LegalTask).filter(models.LegalTask.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task.task_type = task_update.task_type.value
+    task.input_data = task_update.input_data
+    
+    await db.commit()
+    await db.refresh(task)
+    return task
+
+
+@app.put("/tasks/{task_id}/status", tags=["Tasks"])
+async def update_task_status(
+    task_id: int,
+    status_update: dict,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(get_api_key),
+):
+    """Update task status."""
+    result = await db.execute(select(models.LegalTask).filter(models.LegalTask.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    new_status = status_update.get("status")
+    if new_status not in [status.value for status in models.TaskStatus]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    task.status = new_status
+    await db.commit()
+    
+    return {"message": f"Task {task_id} status updated to {new_status}"}
+
+
+@app.delete("/tasks/{task_id}", tags=["Tasks"])
+async def delete_task(
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(get_api_key),
+):
+    """Delete a task."""
+    result = await db.execute(select(models.LegalTask).filter(models.LegalTask.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    await db.delete(task)
+    await db.commit()
+    
+    return {"message": f"Task {task_id} deleted successfully"}
+
+
+@app.post("/tasks/bulk_delete", tags=["Tasks"])
+async def bulk_delete_tasks(
+    task_ids: dict,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(get_api_key),
+):
+    """Delete multiple tasks."""
+    ids = task_ids.get("task_ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No task IDs provided")
+    
+    result = await db.execute(
+        select(models.LegalTask).filter(models.LegalTask.id.in_(ids))
+    )
+    tasks = result.scalars().all()
+    
+    for task in tasks:
+        await db.delete(task)
+    
+    await db.commit()
+    
+    return {"message": f"Deleted {len(tasks)} tasks", "deleted_count": len(tasks)}
+
+
+@app.post("/tasks/bulk_update_status", tags=["Tasks"])
+async def bulk_update_task_status(
+    update_data: dict,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(get_api_key),
+):
+    """Update status of multiple tasks."""
+    task_ids = update_data.get("task_ids", [])
+    new_status = update_data.get("status")
+    
+    if not task_ids:
+        raise HTTPException(status_code=400, detail="No task IDs provided")
+    
+    if new_status not in [status.value for status in models.TaskStatus]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.execute(
+        select(models.LegalTask).filter(models.LegalTask.id.in_(task_ids))
+    )
+    tasks = result.scalars().all()
+    
+    for task in tasks:
+        task.status = new_status
+    
+    await db.commit()
+    
+    return {
+        "message": f"Updated {len(tasks)} tasks to status {new_status}",
+        "updated_count": len(tasks)
+    }
+
+
+@app.post("/tasks/update_open_to_evaluation", tags=["Tasks"])
+async def update_open_tasks_to_evaluation(
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(get_api_key),
+):
+    """Utility endpoint to update all OPEN tasks to BLIND_EVALUATION status."""
+    result = await db.execute(
+        select(models.LegalTask).filter(models.LegalTask.status == models.TaskStatus.OPEN.value)
+    )
+    open_tasks = result.scalars().all()
+    
+    for task in open_tasks:
+        task.status = models.TaskStatus.BLIND_EVALUATION.value
+    
+    await db.commit()
+    
+    return {
+        "message": f"Updated {len(open_tasks)} OPEN tasks to BLIND_EVALUATION status",
+        "updated_count": len(open_tasks)
+    }
 
 
 @app.post("/tasks/{task_id}/assign", response_model=schemas.TaskAssignment, tags=["Tasks"])
@@ -362,6 +611,7 @@ async def create_legal_tasks_from_yaml(
                 ground_truth_data=(
                     ground_truth_data_for_db if ground_truth_data_for_db else None
                 ),
+                status=models.TaskStatus.BLIND_EVALUATION.value,
             )
             db.add(db_task)
             await db.flush()  # Flush to get the task ID before creating response
@@ -376,9 +626,6 @@ async def create_legal_tasks_from_yaml(
                 model_version="dummy-0.1",
             )
             db.add(db_response)
-            db_task.status = (
-                models.TaskStatus.BLIND_EVALUATION.value
-            )  # Imposta lo stato iniziale per la valutazione
 
             await db.refresh(db_task)
             created_tasks.append(db_task)
@@ -395,6 +642,375 @@ async def create_legal_tasks_from_yaml(
     return created_tasks
 
 
+def detect_task_type_from_csv(df: pd.DataFrame) -> str:
+    """
+    Auto-detect task type from CSV columns.
+    """
+    columns = set(df.columns.str.lower())
+    
+    # STATUTORY_RULE_QA detection
+    if {'question', 'answer_text', 'context_full'}.issubset(columns):
+        return "STATUTORY_RULE_QA"
+    
+    # QA detection
+    if {'question', 'context'}.issubset(columns) and 'answer' in ' '.join(columns):
+        return "QA"
+    
+    # CLASSIFICATION detection
+    if {'text', 'labels'}.issubset(columns) or {'text', 'category'}.issubset(columns):
+        return "CLASSIFICATION"
+    
+    # SUMMARIZATION detection
+    if {'document', 'summary'}.issubset(columns) or {'text', 'summary'}.issubset(columns):
+        return "SUMMARIZATION"
+    
+    # Default fallback
+    return "QA"
+
+
+def csv_to_tasks_data(df: pd.DataFrame, task_type: str, task_settings: TaskConfig) -> List[Dict]:
+    """
+    Convert CSV DataFrame to tasks data based on task type.
+    """
+    tasks_data = []
+    
+    if task_type == "STATUTORY_RULE_QA":
+        for _, row in df.iterrows():
+            input_data = {}
+            
+            # Map all columns from the dataset to the expected schema
+            column_mapping = {
+                'id': 'id',
+                'question': 'question', 
+                'rule_id': 'rule_id',
+                'context_full': 'context_full',
+                'context_count': 'context_count',
+                'relevant_articles': 'relevant_articles',
+                'tags': 'tags',
+                'category': 'category',
+                'metadata_full': 'metadata_full',
+                'answer_text': 'answer_text'  # This will be moved to ground truth
+            }
+            
+            # Add all available columns with proper type conversion
+            for csv_col, schema_col in column_mapping.items():
+                if csv_col in row and pd.notna(row[csv_col]):
+                    value = row[csv_col]
+                    # Convert context_count to int if possible
+                    if schema_col == 'context_count':
+                        try:
+                            input_data[schema_col] = int(value) if pd.notna(value) else 0
+                        except (ValueError, TypeError):
+                            input_data[schema_col] = 0
+                    else:
+                        input_data[schema_col] = str(value).strip()
+                
+            # Set defaults for missing required fields
+            if 'id' not in input_data:
+                input_data['id'] = f"generated_{len(tasks_data)}"
+            if 'rule_id' not in input_data:
+                input_data['rule_id'] = ""
+            if 'context_full' not in input_data:
+                input_data['context_full'] = ""
+            if 'context_count' not in input_data:
+                input_data['context_count'] = 1
+            if 'relevant_articles' not in input_data:
+                input_data['relevant_articles'] = ""
+            if 'tags' not in input_data:
+                input_data['tags'] = ""
+            if 'category' not in input_data:
+                input_data['category'] = ""
+            if 'metadata_full' not in input_data:
+                input_data['metadata_full'] = ""
+            
+            # Ensure we have minimum required fields
+            if 'question' in input_data and input_data['question']:
+                tasks_data.append({
+                    "task_type": task_type,
+                    "input_data": input_data
+                })
+    
+    elif task_type == "QA":
+        for _, row in df.iterrows():
+            input_data = {}
+            
+            # Map common column names
+            if 'question' in row and pd.notna(row['question']):
+                input_data['question'] = str(row['question']).strip()
+            
+            if 'context' in row and pd.notna(row['context']):
+                input_data['context'] = str(row['context']).strip()
+            elif 'context_full' in row and pd.notna(row['context_full']):
+                input_data['context'] = str(row['context_full']).strip()
+            
+            # Add answer as ground truth
+            for answer_col in ['answer', 'answers', 'answer_text']:
+                if answer_col in row and pd.notna(row[answer_col]):
+                    input_data['answers'] = str(row[answer_col]).strip()
+                    break
+            
+            if 'question' in input_data:
+                tasks_data.append({
+                    "task_type": task_type,
+                    "input_data": input_data
+                })
+    
+    elif task_type == "CLASSIFICATION":
+        for _, row in df.iterrows():
+            input_data = {}
+            
+            if 'text' in row and pd.notna(row['text']):
+                input_data['text'] = str(row['text']).strip()
+            
+            # Handle labels
+            for label_col in ['labels', 'category', 'categories']:
+                if label_col in row and pd.notna(row[label_col]):
+                    labels_str = str(row[label_col]).strip()
+                    # Split by common separators
+                    if ',' in labels_str:
+                        input_data['labels'] = [l.strip() for l in labels_str.split(',')]
+                    elif ';' in labels_str:
+                        input_data['labels'] = [l.strip() for l in labels_str.split(';')]
+                    else:
+                        input_data['labels'] = [labels_str]
+                    break
+            
+            if 'text' in input_data:
+                tasks_data.append({
+                    "task_type": task_type,
+                    "input_data": input_data
+                })
+    
+    return tasks_data
+
+
+@app.post("/tasks/upload_csv/", tags=["Tasks"])
+async def upload_csv_tasks(
+    file: UploadFile = File(...),
+    task_type: str = Query(None, description="Override task type detection"),
+    db: AsyncSession = Depends(get_db),
+    task_settings: TaskConfig = Depends(get_task_settings),
+    api_key: str = Depends(get_api_key),
+):
+    """
+    Upload tasks from CSV file with automatic task type detection.
+    
+    The endpoint will:
+    1. Auto-detect task type from CSV columns if not specified
+    2. Convert CSV rows to appropriate task format
+    3. Separate input_data from ground_truth_data based on task config
+    4. Create tasks in the database
+    """
+    
+    # Validate file type
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+    
+    try:
+        logger.info(f"Starting CSV upload for file: {file.filename}")
+        
+        # Read CSV content
+        content = await file.read()
+        logger.debug(f"File size: {len(content)} bytes")
+        
+        df = pd.read_csv(io.StringIO(content.decode('utf-8')))
+        logger.debug(f"CSV loaded with {len(df)} rows and columns: {list(df.columns)}")
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="CSV file is empty")
+        
+        # Auto-detect task type if not provided
+        if not task_type:
+            task_type = detect_task_type_from_csv(df)
+            logger.info(f"Auto-detected task type: {task_type}")
+        
+        # Validate task type
+        try:
+            task_type_enum = TaskType(task_type)
+            logger.debug(f"Task type enum validated: {task_type_enum}")
+        except ValueError:
+            logger.error(f"Invalid task type: {task_type}")
+            raise HTTPException(status_code=400, detail=f"Invalid task type: {task_type}")
+        
+        # Convert CSV to tasks data
+        logger.debug("Converting CSV to tasks data...")
+        tasks_data = csv_to_tasks_data(df, task_type, task_settings)
+        logger.info(f"Converted {len(tasks_data)} tasks from CSV")
+        
+        if not tasks_data:
+            raise HTTPException(status_code=400, detail="No valid tasks found in CSV")
+        
+        # Create tasks using existing logic
+        created_tasks = []
+        for task_data in tasks_data:
+            try:
+                # Validate using existing schema
+                validated_task_data = schemas.LegalTaskCreate(
+                    task_type=TaskType(task_data["task_type"]), 
+                    input_data=task_data["input_data"]
+                )
+                
+                # Separate input and ground truth data
+                task_type_config = task_settings.task_types.get(task_type_enum.value)
+                input_data_for_db = {}
+                ground_truth_data_for_db = {}
+                
+                if task_type_config and task_type_config.ground_truth_keys:
+                    for key, value in task_data["input_data"].items():
+                        if key in task_type_config.ground_truth_keys:
+                            ground_truth_data_for_db[key] = value
+                        else:
+                            input_data_for_db[key] = value
+                else:
+                    input_data_for_db = task_data["input_data"]
+                
+                # Create task with BLIND_EVALUATION status
+                db_task = models.LegalTask(
+                    task_type=validated_task_data.task_type.value,
+                    input_data=input_data_for_db,
+                    ground_truth_data=ground_truth_data_for_db if ground_truth_data_for_db else None,
+                    status=models.TaskStatus.BLIND_EVALUATION.value,
+                )
+                db.add(db_task)
+                await db.flush()
+                
+                # Generate AI response or fallback to placeholder
+                try:
+                    default_model_config = AIModelConfig(
+                        name="openai/gpt-3.5-turbo",
+                        api_key=os.getenv("OPENROUTER_API_KEY", ""),
+                        temperature=0.7
+                    )
+                    
+                    if default_model_config.api_key:
+                        ai_response_data = await openrouter_service.generate_response(
+                            task_data["task_type"], 
+                            input_data_for_db, 
+                            default_model_config
+                        )
+                        model_version = ai_response_data.get("model_name", "csv-upload-ai-1.0")
+                    else:
+                        ai_response_data = {
+                            "message": f"AI response placeholder for {db_task.task_type} (no API key configured)",
+                            "task_type": db_task.task_type,
+                            "is_placeholder": True
+                        }
+                        model_version = "csv-upload-placeholder-1.0"
+                except Exception as e:
+                    logger.warning(f"Failed to generate AI response for CSV task: {e}")
+                    ai_response_data = {
+                        "message": f"AI response placeholder for {db_task.task_type} (generation failed)",
+                        "task_type": db_task.task_type,
+                        "error": str(e),
+                        "is_placeholder": True
+                    }
+                    model_version = "csv-upload-fallback-1.0"
+                
+                db_response = models.Response(
+                    task_id=db_task.id,
+                    output_data=ai_response_data,
+                    model_version=model_version,
+                )
+                db.add(db_response)
+                
+                await db.refresh(db_task)
+                
+                # Prepare task data to avoid lazy loading issues
+                task_data = {
+                    "id": db_task.id,
+                    "task_type": db_task.task_type,
+                    "input_data": db_task.input_data,
+                    "ground_truth_data": db_task.ground_truth_data,
+                    "status": db_task.status,
+                    "created_at": db_task.created_at,
+                    "responses": []  # Empty for now since they are just placeholders
+                }
+                created_tasks.append(task_data)
+                
+            except Exception as e:
+                logger.error(f"Error processing task data: {str(e)}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                await db.rollback()
+                raise HTTPException(status_code=422, detail=f"Error processing row: {str(e)}")
+        
+        await db.commit()
+        logger.info(f"Successfully created {len(created_tasks)} tasks")
+        
+        return created_tasks
+        
+    except pd.errors.EmptyDataError:
+        logger.error("CSV file is empty or invalid")
+        raise HTTPException(status_code=400, detail="CSV file is empty or invalid")
+    except pd.errors.ParserError as e:
+        logger.error(f"CSV parsing error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"CSV parsing error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected server error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+
+
+@app.post("/tasks/csv_to_yaml/", tags=["Tasks"])
+async def convert_csv_to_yaml(
+    file: UploadFile = File(...),
+    task_type: str = Query(None, description="Override task type detection"),
+    max_records: int = Query(None, description="Limit number of records to convert"),
+    task_settings: TaskConfig = Depends(get_task_settings),
+    api_key: str = Depends(get_api_key),
+):
+    """
+    Convert CSV file to YAML format for RLCF framework without creating tasks.
+    Useful for preview or offline processing.
+    """
+    
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+    
+    try:
+        content = await file.read()
+        df = pd.read_csv(io.StringIO(content.decode('utf-8')))
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="CSV file is empty")
+        
+        if max_records:
+            df = df.head(max_records)
+        
+        # Auto-detect task type if not provided
+        if not task_type:
+            task_type = detect_task_type_from_csv(df)
+        
+        # Convert to tasks data
+        tasks_data = csv_to_tasks_data(df, task_type, task_settings)
+        
+        if not tasks_data:
+            raise HTTPException(status_code=400, detail="No valid tasks found in CSV")
+        
+        # Create YAML structure
+        yaml_data = {
+            "tasks": tasks_data,
+            "metadata": {
+                "source": file.filename,
+                "total_tasks": len(tasks_data),
+                "detected_task_type": task_type,
+                "description": f"Converted from {file.filename}"
+            }
+        }
+        
+        # Convert to YAML string
+        yaml_output = yaml.dump(yaml_data, default_flow_style=False, allow_unicode=True, indent=2)
+        
+        return Response(
+            content=yaml_output,
+            media_type="application/x-yaml",
+            headers={"Content-Disposition": f"attachment; filename={file.filename.replace('.csv', '.yaml')}"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Conversion error: {str(e)}")
+
+
 # --- New GET Endpoints for Database Viewer ---
 @app.get(
     "/credentials/all",
@@ -404,35 +1020,6 @@ async def create_legal_tasks_from_yaml(
 async def get_all_credentials(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.Credential))
     return result.scalars().all()
-
-
-@app.get("/tasks/all", response_model=list[schemas.LegalTask], tags=["Database Viewer"])
-async def get_all_tasks(
-    limit: int = Query(None, description="Limit number of results"),
-    status: str = Query(None, description="Filter by task status"),
-    db: AsyncSession = Depends(get_db)
-):
-    query = select(models.LegalTask)
-    if status:
-        query = query.filter(models.LegalTask.status == status)
-    if limit:
-        query = query.limit(limit)
-    
-    result = await db.execute(query)
-    tasks = result.scalars().all()
-    # Convert to dict to avoid lazy loading issues
-    return [
-        {
-            "id": task.id,
-            "task_type": task.task_type,
-            "input_data": task.input_data,
-            "ground_truth_data": task.ground_truth_data,
-            "status": task.status,
-            "created_at": task.created_at,
-            "responses": []  # Empty to avoid async issues
-        }
-        for task in tasks
-    ]
 
 
 @app.get("/responses/all", response_model=list[schemas.Response], tags=["Database Viewer"])
@@ -753,4 +1340,95 @@ async def get_devils_advocate_prompts(task_type: str):
         "task_type": task_type,
         "prompts": prompts,
         "count": len(prompts)
+    }
+
+
+@app.post("/ai/generate_response", tags=["AI Service"])
+async def generate_ai_response(
+    request: dict,
+    api_key: str = Depends(get_api_key),
+):
+    """
+    Generate AI response for a specific task input using OpenRouter.
+    
+    Request body:
+    {
+        "task_type": "STATUTORY_RULE_QA",
+        "input_data": {...},
+        "model_config": {
+            "name": "openai/gpt-4",
+            "api_key": "sk-...",
+            "temperature": 0.7
+        }
+    }
+    """
+    try:
+        task_type = request.get("task_type")
+        input_data = request.get("input_data")
+        model_config_data = request.get("model_config")
+        
+        if not all([task_type, input_data, model_config_data]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        model_config = AIModelConfig(
+            name=model_config_data.get("name", "openai/gpt-3.5-turbo"),
+            api_key=model_config_data.get("api_key"),
+            temperature=model_config_data.get("temperature", 0.7),
+            max_tokens=model_config_data.get("max_tokens", 1000)
+        )
+        
+        if not model_config.api_key:
+            raise HTTPException(status_code=400, detail="API key is required")
+        
+        response_data = await openrouter_service.generate_response(
+            task_type, input_data, model_config
+        )
+        
+        return {
+            "success": True,
+            "response_data": response_data,
+            "model_used": model_config.name
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating AI response: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+
+
+@app.get("/ai/models", tags=["AI Service"])
+async def get_available_models():
+    """Get list of available AI models from OpenRouter."""
+    return {
+        "models": [
+            {
+                "id": "openai/gpt-4",
+                "name": "GPT-4",
+                "description": "Most capable OpenAI model",
+                "recommended_for": ["complex_legal_analysis", "statutory_interpretation"]
+            },
+            {
+                "id": "openai/gpt-3.5-turbo",
+                "name": "GPT-3.5 Turbo",
+                "description": "Fast and capable for most legal tasks",
+                "recommended_for": ["qa", "classification", "summarization"]
+            },
+            {
+                "id": "anthropic/claude-3-sonnet",
+                "name": "Claude 3 Sonnet",
+                "description": "Excellent for legal reasoning and analysis",
+                "recommended_for": ["legal_reasoning", "risk_assessment", "drafting"]
+            },
+            {
+                "id": "anthropic/claude-3-haiku",
+                "name": "Claude 3 Haiku",
+                "description": "Fast and efficient for simple tasks",
+                "recommended_for": ["classification", "quick_qa"]
+            },
+            {
+                "id": "meta-llama/llama-3-70b-instruct",
+                "name": "Llama 3 70B Instruct",
+                "description": "Open-source alternative with good performance",
+                "recommended_for": ["general_legal_tasks"]
+            }
+        ]
     }

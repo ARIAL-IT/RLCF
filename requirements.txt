@@ -12,3 +12,5 @@ gradio
 requests
 typing_extensions
 asteval
+aiohttp
+pandas

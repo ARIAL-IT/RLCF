@@ -8,6 +8,13 @@ export const TASK_FORM_SCHEMAS = {
     position: z.enum(['correct', 'incorrect']),
     reasoning: z.string().min(50, 'Reasoning must be at least 50 chars'),
   }),
+  STATUTORY_RULE_QA: z.object({
+    validated_answer: z.string().min(10, 'Provide a validated answer (min 10 chars)'),
+    position: z.enum(['correct', 'incorrect']),
+    reasoning: z.string().min(50, 'Reasoning must be at least 50 chars'),
+    legal_accuracy: z.enum(['accurate', 'partially_accurate', 'inaccurate']),
+    citation_quality: z.enum(['excellent', 'good', 'fair', 'poor']),
+  }),
   CLASSIFICATION: z.object({
     validated_labels: z.array(z.string()).min(1, 'Select at least one label'),
     reasoning: z.string().min(50, 'Reasoning must be at least 50 chars'),
@@ -76,6 +83,69 @@ export function TaskFormFields({ taskType, register, setValue, errors }: TaskFor
         <div className="space-y-1">
           <label className="block text-sm text-slate-300">Reasoning</label>
           <textarea className="w-full p-2 bg-slate-900 border border-slate-700 rounded" rows={6} {...register('reasoning')} />
+          {errors?.reasoning && <p className="text-red-400 text-xs">{String(errors.reasoning.message)}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (taskType === 'STATUTORY_RULE_QA') {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-slate-300">⚖️ Validated Legal Answer</label>
+          <textarea 
+            className="w-full p-3 bg-slate-900 border border-purple-700 rounded" 
+            rows={6} 
+            placeholder="Provide your expert legal analysis and answer..."
+            {...register('validated_answer')} 
+          />
+          {errors?.validated_answer && <p className="text-red-400 text-xs">{String(errors.validated_answer.message)}</p>}
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-300">📊 Overall Position</label>
+            <select className="w-full p-2 bg-slate-900 border border-purple-700 rounded" {...register('position')}>
+              <option value="">Select position...</option>
+              <option value="correct">✅ Correct</option>
+              <option value="incorrect">❌ Incorrect</option>
+            </select>
+            {errors?.position && <p className="text-red-400 text-xs">{String(errors.position.message)}</p>}
+          </div>
+          
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-300">🎯 Legal Accuracy</label>
+            <select className="w-full p-2 bg-slate-900 border border-purple-700 rounded" {...register('legal_accuracy')}>
+              <option value="">Select accuracy...</option>
+              <option value="accurate">🟢 Accurate</option>
+              <option value="partially_accurate">🟡 Partially Accurate</option>
+              <option value="inaccurate">🔴 Inaccurate</option>
+            </select>
+            {errors?.legal_accuracy && <p className="text-red-400 text-xs">{String(errors.legal_accuracy.message)}</p>}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-slate-300">📚 Citation Quality</label>
+          <select className="w-full p-2 bg-slate-900 border border-purple-700 rounded" {...register('citation_quality')}>
+            <option value="">Rate citation quality...</option>
+            <option value="excellent">⭐⭐⭐⭐ Excellent - Perfect citations and references</option>
+            <option value="good">⭐⭐⭐ Good - Mostly correct citations with minor issues</option>
+            <option value="fair">⭐⭐ Fair - Some correct citations but missing key references</option>
+            <option value="poor">⭐ Poor - Incorrect or missing citations</option>
+          </select>
+          {errors?.citation_quality && <p className="text-red-400 text-xs">{String(errors.citation_quality.message)}</p>}
+        </div>
+        
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-slate-300">💭 Legal Reasoning</label>
+          <textarea 
+            className="w-full p-3 bg-slate-900 border border-purple-700 rounded" 
+            rows={8} 
+            placeholder="Explain your legal reasoning, cite relevant precedents, identify any issues or areas for improvement..."
+            {...register('reasoning')} 
+          />
           {errors?.reasoning && <p className="text-red-400 text-xs">{String(errors.reasoning.message)}</p>}
         </div>
       </div>

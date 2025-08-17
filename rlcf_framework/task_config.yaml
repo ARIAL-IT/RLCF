@@ -24,6 +24,25 @@ task_types:
       validated_answer: str
       position: Literal["correct", "incorrect"]
       reasoning: str
+  STATUTORY_RULE_QA:
+    input_data:
+      id: str
+      question: str
+      rule_id: str
+      context_full: str
+      context_count: int
+      relevant_articles: str
+      tags: str
+      category: str
+      metadata_full: str
+    ground_truth_keys:
+    - answer_text
+    feedback_data:
+      validated_answer: str
+      confidence: Literal["high", "medium", "low"]
+      position: Literal["correct", "partially_correct", "incorrect"]
+      reasoning: str
+      sources_verified: bool
   PREDICTION:
     input_data:
       facts: str

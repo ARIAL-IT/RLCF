@@ -9,6 +9,7 @@ from .qa_handler import (
     DraftingHandler,
     RiskSpottingHandler,
     DoctrineApplicationHandler,
+    StatutoryRuleQAHandler,
 )
 
 HANDLER_MAP = {
@@ -21,6 +22,7 @@ HANDLER_MAP = {
     TaskType.DRAFTING: DraftingHandler,
     TaskType.RISK_SPOTTING: RiskSpottingHandler,
     TaskType.DOCTRINE_APPLICATION: DoctrineApplicationHandler,
+    TaskType.STATUTORY_RULE_QA: StatutoryRuleQAHandler,
 }
 
 

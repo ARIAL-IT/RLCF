@@ -85,6 +85,7 @@ export enum TaskType {
   SUMMARIZATION = 'SUMMARIZATION',
   CLASSIFICATION = 'CLASSIFICATION', 
   QA = 'QA',
+  STATUTORY_RULE_QA = 'STATUTORY_RULE_QA',
   PREDICTION = 'PREDICTION',
   NLI = 'NLI',
   NER = 'NER',
@@ -190,6 +191,7 @@ export interface EvaluationWizardState {
   isDevilsAdvocate: boolean;
   formData: Record<string, any>;
   completed: boolean;
+  startTime: number;
 }
 
 // Analytics Types

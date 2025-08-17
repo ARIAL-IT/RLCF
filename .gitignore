@@ -112,3 +112,5 @@ dmypy.json
 rlcf.db
 .cursor
 CLAUDE.md
+.DS_Store
+*.csv

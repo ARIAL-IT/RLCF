@@ -522,6 +522,214 @@ class NLIHandler(BaseTaskHandler):
         return 1.0 if user_label == consensus_label else 0.0
 
 
+class StatutoryRuleQAHandler(BaseTaskHandler):
+    """
+    Handler for Statutory Rule Question Answering tasks.
+    
+    Specialized handler for legal Q&A tasks involving statutory rules and regulations.
+    This handler processes feedback for complex legal questions requiring analysis of
+    specific legal articles, contexts, and regulatory frameworks.
+    """
+
+    def __init__(self, db: AsyncSession, task: models.LegalTask):
+        super().__init__(db, task)
+
+    async def aggregate_feedback(self) -> Dict[str, Any]:
+        """Aggregates feedback for Statutory Rule QA tasks."""
+        feedbacks = await self.get_feedbacks()
+        if not feedbacks:
+            return {"error": "No feedback available for this statutory rule QA task."}
+
+        answer_scores = {}
+        answer_details = {}
+        confidence_weights = {"high": 1.0, "medium": 0.7, "low": 0.4}
+
+        for fb in feedbacks:
+            answer = fb.feedback_data.get("validated_answer", "")
+            confidence = fb.feedback_data.get("confidence", "medium")
+            position = fb.feedback_data.get("position", "correct")
+            
+            if not answer:
+                continue
+
+            normalized_answer = answer.strip().lower()
+            
+            if normalized_answer not in answer_scores:
+                answer_scores[normalized_answer] = 0
+                answer_details[normalized_answer] = {
+                    "original_answers": [],
+                    "supporters": [],
+                    "reasoning": [],
+                    "confidence_distribution": {"high": 0, "medium": 0, "low": 0},
+                    "position_distribution": {"correct": 0, "partially_correct": 0, "incorrect": 0}
+                }
+
+            # Weight by authority score and confidence
+            base_weight = fb.author.authority_score
+            confidence_multiplier = confidence_weights.get(confidence, 0.7)
+            position_multiplier = 1.0 if position == "correct" else (0.7 if position == "partially_correct" else 0.3)
+            
+            final_weight = base_weight * confidence_multiplier * position_multiplier
+            answer_scores[normalized_answer] += final_weight
+
+            # Collect details
+            answer_details[normalized_answer]["original_answers"].append(answer)
+            answer_details[normalized_answer]["supporters"].append({
+                "username": fb.author.username,
+                "authority": fb.author.authority_score,
+                "confidence": confidence,
+                "position": position
+            })
+            answer_details[normalized_answer]["confidence_distribution"][confidence] += 1
+            answer_details[normalized_answer]["position_distribution"][position] += 1
+
+            if "reasoning" in fb.feedback_data:
+                answer_details[normalized_answer]["reasoning"].append(fb.feedback_data["reasoning"])
+
+        if not answer_scores:
+            return {"error": "No valid answers found."}
+
+        # Sort by weighted score
+        sorted_answers = sorted(answer_scores.items(), key=lambda x: x[1], reverse=True)
+        best_answer_key, best_score = sorted_answers[0]
+        total_weight = sum(answer_scores.values())
+
+        # Prepare consensus answer
+        best_details = answer_details[best_answer_key]
+        consensus_answer = best_details["original_answers"][0] if best_details["original_answers"] else best_answer_key
+
+        # Calculate confidence based on agreement and position distribution
+        confidence = best_score / total_weight if total_weight > 0 else 0
+        
+        # Prepare alternative answers
+        alternative_answers = []
+        for answer_key, score in sorted_answers[1:3]:  # Top 2 alternatives
+            details = answer_details[answer_key]
+            alternative_answers.append({
+                "answer": details["original_answers"][0] if details["original_answers"] else answer_key,
+                "support_percentage": round((score / total_weight) * 100, 1),
+                "supporter_count": len(details["supporters"]),
+                "confidence_distribution": details["confidence_distribution"],
+                "top_reasoning": details["reasoning"][0] if details["reasoning"] else ""
+            })
+
+        return {
+            "consensus_answer": consensus_answer,
+            "confidence": round(confidence, 3),
+            "support_percentage": round((best_score / total_weight) * 100, 1),
+            "alternative_answers": alternative_answers,
+            "total_evaluators": len(feedbacks),
+            "confidence_distribution": best_details["confidence_distribution"],
+            "position_distribution": best_details["position_distribution"],
+            "details": answer_scores
+        }
+
+    def calculate_consistency(self, feedback: models.Feedback, aggregated_result: Dict[str, Any]) -> float:
+        """Calculate consistency for Statutory Rule QA."""
+        user_answer = feedback.feedback_data.get("validated_answer", "").strip().lower()
+        consensus_answer = aggregated_result.get("consensus_answer", "").strip().lower()
+
+        if not user_answer or not consensus_answer:
+            return 0.0
+
+        # Enhanced consistency calculation for legal terminology
+        if user_answer == consensus_answer:
+            return 1.0
+
+        # Legal term matching with higher weights
+        legal_terms = {
+            "applicabile", "non applicabile", "valido", "invalido", "conforme", "non conforme",
+            "legittimo", "illegittimo", "responsabile", "non responsabile", "dovuto", "non dovuto",
+            "ammissibile", "inammissibile", "fondato", "infondato", "prescrivibile", "imprescrivibile"
+        }
+
+        user_words = set(user_answer.split())
+        consensus_words = set(consensus_answer.split())
+
+        # Calculate weighted similarity
+        total_overlap = len(user_words & consensus_words)
+        total_union = len(user_words | consensus_words)
+        
+        legal_overlap = len((user_words & consensus_words) & legal_terms)
+        legal_union = len((user_words | consensus_words) & legal_terms)
+
+        if total_union == 0:
+            return 0.0
+
+        base_similarity = total_overlap / total_union
+        legal_bonus = (legal_overlap / legal_union * 0.4) if legal_union > 0 else 0
+
+        return min(1.0, base_similarity + legal_bonus)
+
+    def calculate_correctness(self, feedback: models.Feedback, ground_truth: Dict[str, Any]) -> float:
+        """Calculate correctness against ground truth for Statutory Rule QA."""
+        if not ground_truth or "answer_text" not in ground_truth:
+            return 0.0
+
+        user_answer = feedback.feedback_data.get("validated_answer", "").strip().lower()
+        ground_truth_answer = ground_truth["answer_text"].strip().lower()
+        position = feedback.feedback_data.get("position", "correct")
+
+        if not user_answer:
+            return 0.0
+
+        # Position-based scoring
+        position_multiplier = {"correct": 1.0, "partially_correct": 0.7, "incorrect": 0.3}
+        base_multiplier = position_multiplier.get(position, 0.5)
+
+        # Semantic similarity with legal focus
+        user_words = set(user_answer.split())
+        gt_words = set(ground_truth_answer.split())
+
+        if not gt_words:
+            return base_multiplier if user_answer else 0.0
+
+        # Weighted similarity considering legal terminology
+        intersection = user_words & gt_words
+        union = user_words | gt_words
+
+        similarity = len(intersection) / len(union) if union else 0.0
+        
+        return min(1.0, similarity * base_multiplier)
+    
+    def format_for_export(self, format_type: str) -> List[Dict[str, Any]]:
+        """Format Statutory Rule QA data for export."""
+        # Base implementation - can be enhanced based on specific requirements
+        export_data = []
+        
+        # Create basic export entry with task data
+        export_entry = {
+            "task_id": self.task.id,
+            "task_type": self.task.task_type,
+            "question": self.task.input_data.get("question", ""),
+            "context": self.task.input_data.get("context_full", ""),
+            "relevant_articles": self.task.input_data.get("relevant_articles", ""),
+            "category": self.task.input_data.get("category", ""),
+            "ground_truth_answer": self.task.ground_truth_data.get("answer_text", "") if self.task.ground_truth_data else ""
+        }
+        
+        if format_type == "SFT":
+            # Supervised Fine-Tuning format
+            export_entry.update({
+                "input": f"Question: {export_entry['question']}\nContext: {export_entry['context']}\nRelevant Articles: {export_entry['relevant_articles']}",
+                "output": export_entry["ground_truth_answer"]
+            })
+        elif format_type == "Preference":
+            # Preference learning format would require multiple responses
+            export_entry.update({
+                "query": export_entry["question"],
+                "preferred_response": export_entry["ground_truth_answer"],
+                "context_info": {
+                    "context": export_entry["context"],
+                    "articles": export_entry["relevant_articles"],
+                    "category": export_entry["category"]
+                }
+            })
+        
+        export_data.append(export_entry)
+        return export_data
+
+
 class NERHandler(BaseTaskHandler):
     """
     Handler for Named Entity Recognition tasks.

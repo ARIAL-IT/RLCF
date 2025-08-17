@@ -3,11 +3,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/Card';
 import { Button } from '@components/ui/Button';
 import { useTasks, useUsers, useCreateTask, useBatchCreateTasksFromYaml, useCreateUser, useAddCredential, useModelConfig, useTaskConfig, useUpdateModelConfig, useUpdateTaskConfig, useSetApiKey, useUpdateTaskStatus, useExportDataset } from '@hooks/useApi';
 import type { LegalTask, User, TaskType } from '@types/index';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { TaskManager } from './TaskManager';
+import { CsvUpload } from './CsvUpload';
+import { AIConfiguration } from './AIConfiguration';
 
 const taskInputPlaceholders: Record<string, string> = {
   QA: JSON.stringify({ question: "What is the statute of limitations for breach of contract?", context: "The contract was signed on Jan 1, 2020." }, null, 2),
+  STATUTORY_RULE_QA: JSON.stringify({ 
+    id: "Q201923077", 
+    question: "Ciao! La mia è una domanda semplice: ma sono legali i sistemi di riconoscimento biometrico per il controllo accessi aziendali?", 
+    rule_id: "NORM_NORMA_DI_RIFERIMENTO_ARTICOLO_4_CODICE_PRIVACY_DEFIN", 
+    context_full: "[Art.1: title: Articolo 4 Codice In Materia Di Protezione Dei Dati Personali]", 
+    context_count: 1, 
+    relevant_articles: "Norma di riferimento:Articolo 4 Codice privacy", 
+    tags: "Privacy; Codice In Materia Di Protezione Dei Dati Personali", 
+    category: "Privacy" 
+  }, null, 2),
   CLASSIFICATION: JSON.stringify({ text: "The defendant failed to deliver the goods as per the agreement.", unit: "case summary" }, null, 2),
   SUMMARIZATION: JSON.stringify({ document: "A long legal document text..." }, null, 2),
   PREDICTION: JSON.stringify({ facts: "The plaintiff has a strong case with clear evidence." }, null, 2),
@@ -18,7 +31,10 @@ const taskInputPlaceholders: Record<string, string> = {
   DOCTRINE_APPLICATION: JSON.stringify({ facts: "The defendant acted in self-defense.", question: "Is the use of force justified?" }, null, 2),
 };
 
+type AdminView = 'dashboard' | 'tasks' | 'upload' | 'ai-config';
+
 export function AdminDashboard() {
+  const [currentView, setCurrentView] = useState<AdminView>('dashboard');
   const { data: tasks, refetch: refetchTasks } = useTasks();
   const { data: users, refetch: refetchUsers } = useUsers();
 
@@ -78,12 +94,120 @@ export function AdminDashboard() {
     exportDataset.mutate({ task_type: exportTaskType, export_format: exportFormat });
   };
 
+  // Handle view switching
+  if (currentView === 'tasks') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView('dashboard')}
+            className="text-slate-400 hover:text-white"
+          >
+            ← Back to Dashboard
+          </Button>
+        </div>
+        <TaskManager />
+      </div>
+    );
+  }
+
+  if (currentView === 'upload') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView('dashboard')}
+            className="text-slate-400 hover:text-white"
+          >
+            ← Back to Dashboard
+          </Button>
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Upload Dataset</h1>
+          <p className="text-slate-400 mb-6">Upload CSV files to create tasks automatically</p>
+          <CsvUpload
+            onUploadComplete={(tasks) => {
+              toast.success(`Successfully created ${tasks.length} tasks`);
+              setCurrentView('tasks');
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentView === 'ai-config') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentView('dashboard')}
+            className="text-slate-400 hover:text-white"
+          >
+            ← Back to Dashboard
+          </Button>
+        </div>
+        
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">AI Configuration</h1>
+          <p className="text-slate-400 mb-6">Configure OpenRouter integration for realistic AI responses</p>
+          <AIConfiguration />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
         <p className="text-slate-400">Gestisci tasks, utenti, chiavi e configurazioni del framework</p>
       </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Button 
+              onClick={() => setCurrentView('upload')}
+              className="flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              Upload CSV Dataset
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setCurrentView('tasks')}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Manage Tasks
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setCurrentView('ai-config')}
+              className="flex items-center gap-2"
+            >
+              🤖 AI Configuration
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={handleExport}
+              className="flex items-center gap-2"
+              disabled={exportDataset.isLoading}
+            >
+              <Download className="h-4 w-4" />
+              Export Data
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* User Management Column */}

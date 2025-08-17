@@ -198,18 +198,16 @@ class BiasReport(BiasReportBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TaskAssignmentBase(BaseModel):
-    task_id: int
+class TaskAssignmentCreate(BaseModel):
     user_id: int
     role: str = "evaluator"
 
 
-class TaskAssignmentCreate(TaskAssignmentBase):
-    pass
-
-
-class TaskAssignment(TaskAssignmentBase):
+class TaskAssignment(BaseModel):
     id: int
+    task_id: int
+    user_id: int
+    role: str = "evaluator"
     assigned_at: datetime.datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -220,7 +218,8 @@ class TaskStatusUpdate(BaseModel):
 
 
 class BulkUserCreate(BaseModel):
-    usernames: List[str]
+    usernames: Optional[List[str]] = None
+    users: Optional[List[UserCreate]] = None
 
 class ExportRequest(BaseModel):
     task_type: TaskType

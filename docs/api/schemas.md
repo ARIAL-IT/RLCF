@@ -2,6 +2,10 @@
 
 This document describes the data structures used throughout the RLCF API. All schemas are defined using Pydantic models for automatic validation and documentation generation.
 
+**Last Updated**: Alpha 0.0.1 Release  
+**Schema Version**: 1.0.0  
+**Status**: Aligned with actual implementation
+
 ## User Management Schemas
 
 ### User
@@ -12,65 +16,61 @@ This document describes the data structures used throughout the RLCF API. All sc
   "authority_score": 0.75,
   "track_record_score": 0.8,
   "baseline_credential_score": 1.2,
-  "credentials": [
-    {
-      "id": 1,
-      "type": "ACADEMIC_DEGREE",
-      "value": "JD",
-      "verified": true
-    }
-  ]
+  "credentials": []
 }
 ```
 
 **Field Descriptions:**
 - `id`: Unique user identifier (auto-generated)
 - `username`: Unique username (required)
-- `authority_score`: Current authority score [0.0, 2.0]
-- `track_record_score`: Historical performance [0.0, 1.0]
-- `baseline_credential_score`: Credential-based score [0.0, 2.0]
-- `credentials`: List of user credentials
+- `authority_score`: Current authority score [0.0, 2.0+] (auto-calculated)
+- `track_record_score`: Historical performance [0.0, 1.0] (auto-calculated)
+- `baseline_credential_score`: Credential-based score [0.0, 2.0+] (auto-calculated)
+- `credentials`: List of user credentials (empty in API responses to avoid lazy loading)
 
 ### UserCreate
 ```json
 {
-  "username": "string",
-  "authority_score": 0.5,
-  "track_record_score": 0.5,
-  "baseline_credential_score": 0.0
+  "username": "string"
 }
 ```
 
 **Field Validation:**
-- `username`: Must be unique, 3-50 characters
-- `authority_score`: Optional, defaults to 0.5
-- `track_record_score`: Optional, defaults to 0.5
-- `baseline_credential_score`: Optional, defaults to 0.0
+- `username`: Must be unique, non-empty string
+
+**Note**: Authority scores are auto-calculated, not provided during creation.
 
 ### Credential
 ```json
 {
   "id": 1,
+  "user_id": 1,
   "type": "ACADEMIC_DEGREE",
   "value": "JD",
-  "verified": true
+  "weight": 0.3
 }
 ```
 
 **Credential Types:**
 - `ACADEMIC_DEGREE`: Bachelor, LLM, JD, PhD
-- `PROFESSIONAL_EXPERIENCE`: Years of experience (numeric)
-- `PUBLICATION`: Number of publications (numeric)
+- `PROFESSIONAL_EXPERIENCE`: Years of experience (numeric string)
+- `PUBLICATION`: Number of publications (numeric string)
 - `INSTITUTIONAL_ROLE`: Junior, Senior, Partner
+- `PROFESSIONAL_FIELD`: Area of specialization
 
 ### CredentialCreate
 ```json
 {
   "type": "ACADEMIC_DEGREE",
   "value": "JD",
-  "verified": false
+  "weight": 0.3
 }
 ```
+
+**Field Validation:**
+- `type`: Must be valid credential type
+- `value`: String value corresponding to credential type
+- `weight`: Float value for credential importance
 
 ## Task Management Schemas
 
@@ -80,93 +80,104 @@ This document describes the data structures used throughout the RLCF API. All sc
   "id": 1,
   "task_type": "STATUTORY_RULE_QA",
   "input_data": {
-    "question": "string",
-    "context_full": "string",
-    "rule_id": "string"
+    "question": "What are the requirements for contract formation?",
+    "rule_id": "contract_law_001",
+    "context_full": "Legal context here...",
+    "context_count": 1,
+    "relevant_articles": "Article 1, Article 2",
+    "category": "Contract Law",
+    "tags": "formation, requirements",
+    "metadata_full": "{}"
   },
-  "ground_truth_data": {
-    "answer_text": "string"
-  },
-  "status": "BLIND_EVALUATION",
+  "ground_truth_data": null,
   "created_at": "2024-01-15T10:30:00Z",
+  "status": "BLIND_EVALUATION",
   "responses": []
 }
 ```
 
-**Task Types (Enum):**
-- `SUMMARIZATION`
-- `CLASSIFICATION`
-- `QA`
-- `STATUTORY_RULE_QA`
-- `PREDICTION`
-- `NLI`
-- `NER`
-- `DRAFTING`
-- `RISK_SPOTTING`
-- `DOCTRINE_APPLICATION`
-- `COMPLIANCE_RISK_SPOTTING`
-- `DOC_CLAUSE_CLASSIFICATION`
-- `DRAFTING_GENERATION_PARALLEL`
-- `NAMED_ENTITY_BIO`
-- `NLI_ENTAILMENT`
-- `SUMMARIZATION_PAIRS`
-- `VIOLATION_OUTCOME_PREDICTION`
+**Task Types:**
+- `STATUTORY_RULE_QA`: Statutory rule question answering
+- `QA`: General question answering
+- `CLASSIFICATION`: Document classification
+- `SUMMARIZATION`: Document summarization
+- `PREDICTION`: Outcome prediction
+- `NLI`: Natural language inference
+- `NER`: Named entity recognition
+- `DRAFTING`: Legal drafting
+- `RISK_SPOTTING`: Compliance risk spotting
+- `DOCTRINE_APPLICATION`: Legal doctrine application
 
-**Task Status (Enum):**
-- `OPEN`: Task is available for AI response generation
-- `BLIND_EVALUATION`: Task is in blind evaluation phase
-- `CLOSED`: Task evaluation is complete
+**Task Status:**
+- `OPEN`: Newly created, not yet in evaluation
+- `BLIND_EVALUATION`: Currently being evaluated by experts
+- `AGGREGATED`: Evaluation complete, results aggregated
+- `CLOSED`: Task completed and finalized
 
 ### LegalTaskCreate
 ```json
 {
-  "task_type": "QA",
+  "task_type": "STATUTORY_RULE_QA",
   "input_data": {
-    "context": "Legal context here...",
-    "question": "What is the legal question?"
+    "question": "string",
+    "rule_id": "string",
+    "context_full": "string",
+    "context_count": 1,
+    "relevant_articles": "string",
+    "category": "string",
+    "tags": "string",
+    "metadata_full": "string"
   }
 }
 ```
 
-**Dynamic Input Data by Task Type:**
+**Input Data Schemas by Task Type:**
 
-#### QA Tasks
+#### STATUTORY_RULE_QA
 ```json
 {
-  "context": "string",
-  "question": "string"
+  "question": "string (required)",
+  "rule_id": "string (required)",
+  "context_full": "string (required)",
+  "context_count": "integer (required)",
+  "relevant_articles": "string (required)",
+  "category": "string (required)",
+  "tags": "string (required)",
+  "metadata_full": "string (required)"
 }
 ```
 
-#### STATUTORY_RULE_QA Tasks
+#### QA
 ```json
 {
-  "id": "string",
-  "question": "string",
-  "rule_id": "string",
-  "context_full": "string",
-  "context_count": 0,
-  "relevant_articles": "string",
-  "tags": "string",
-  "category": "string",
-  "metadata_full": "string"
+  "question": "string (required)",
+  "context": "string (required)"
 }
 ```
 
-#### CLASSIFICATION Tasks
+#### CLASSIFICATION
 ```json
 {
-  "text": "string",
-  "unit": "string"
+  "text": "string (required)",
+  "unit": "string (required)"
 }
 ```
 
-#### PREDICTION Tasks
+#### SUMMARIZATION
 ```json
 {
-  "facts": "string"
+  "document": "string (required)"
 }
 ```
+
+### TaskStatusUpdate
+```json
+{
+  "status": "AGGREGATED"
+}
+```
+
+## Response Management Schemas
 
 ### Response
 ```json
@@ -174,31 +185,43 @@ This document describes the data structures used throughout the RLCF API. All sc
   "id": 1,
   "task_id": 1,
   "output_data": {
-    "message": "AI-generated response",
-    "confidence": 0.85
+    "message": "AI response placeholder",
+    "task_type": "STATUTORY_RULE_QA",
+    "is_placeholder": true
   },
-  "model_version": "gpt-3.5-turbo",
-  "created_at": "2024-01-15T10:35:00Z",
+  "model_version": "placeholder-1.0",
+  "generated_at": "2024-01-15T10:30:00Z",
   "feedback": []
 }
 ```
 
-## Feedback Schemas
+**Field Descriptions:**
+- `output_data`: Flexible JSON containing AI-generated response
+- `model_version`: Version/name of the model that generated the response
+- `feedback`: List of feedback objects (empty in API responses)
+
+## Feedback Management Schemas
 
 ### Feedback
 ```json
 {
   "id": 1,
-  "response_id": 1,
   "user_id": 1,
+  "response_id": 1,
+  "is_blind_phase": true,
+  "accuracy_score": 8.5,
+  "utility_score": 7.8,
+  "transparency_score": 9.0,
   "feedback_data": {
-    "validated_answer": "string",
-    "position": "correct",
-    "reasoning": "string"
+    "validated_answer": "Corrected response...",
+    "position": "partially_correct",
+    "reasoning": "The response was mostly accurate but...",
+    "legal_accuracy": "high",
+    "citation_quality": "good"
   },
-  "accuracy_score": 0.85,
-  "consistency_score": 0.78,
-  "community_helpfulness_rating": 4.2,
+  "community_helpfulness_rating": 0,
+  "consistency_score": null,
+  "correctness_score": null,
   "submitted_at": "2024-01-15T11:00:00Z"
 }
 ```
@@ -206,134 +229,78 @@ This document describes the data structures used throughout the RLCF API. All sc
 ### FeedbackCreate
 ```json
 {
-  "response_id": 1,
   "user_id": 1,
+  "accuracy_score": 8.5,
+  "utility_score": 7.8,
+  "transparency_score": 9.0,
   "feedback_data": {
     "validated_answer": "string",
-    "position": "correct",
-    "reasoning": "string"
-  }
-}
-```
-
-**Dynamic Feedback Data by Task Type:**
-
-#### QA Feedback
-```json
-{
-  "validated_answer": "string",
-  "position": "correct|incorrect",
-  "reasoning": "string"
-}
-```
-
-#### STATUTORY_RULE_QA Feedback
-```json
-{
-  "validated_answer": "string",
-  "confidence": "high|medium|low",
-  "position": "correct|partially_correct|incorrect",
-  "reasoning": "string",
-  "sources_verified": true
-}
-```
-
-#### CLASSIFICATION Feedback
-```json
-{
-  "validated_labels": ["label1", "label2"],
-  "reasoning": "string"
-}
-```
-
-#### PREDICTION Feedback
-```json
-{
-  "chosen_outcome": "violation|no_violation",
-  "reasoning": "string"
-}
-```
-
-## Authority & Aggregation Schemas
-
-### AuthorityCalculationRequest
-```json
-{
-  "recent_performance": 0.85
-}
-```
-
-### AuthorityCalculationResponse
-```json
-{
-  "user_id": 1,
-  "new_authority_score": 0.78,
-  "components": {
-    "baseline_credentials": 1.2,
-    "track_record": 0.75,
-    "recent_performance": 0.85
+    "position": "correct|partially_correct|incorrect",
+    "reasoning": "string",
+    "legal_accuracy": "high|medium|low",
+    "citation_quality": "good|fair|poor"
   },
-  "weights": {
-    "baseline_credentials": 0.3,
-    "track_record": 0.5,
-    "recent_performance": 0.2
-  }
+  "metadata": null
 }
 ```
 
-### AggregationResult
+**Feedback Data Schemas by Task Type:**
+
+#### STATUTORY_RULE_QA
 ```json
 {
-  "task_id": 1,
-  "aggregation_result": {
-    "primary_answer": "string",
-    "confidence_level": 0.85,
-    "disagreement_score": 0.25,
-    "alternative_positions": [
-      {
-        "position": "string",
-        "support": 0.15,
-        "reasoning": "string"
-      }
-    ],
-    "expert_disagreement": {
-      "consensus_areas": ["string"],
-      "contention_points": ["string"],
-      "reasoning_patterns": ["string"]
-    },
-    "epistemic_metadata": {
-      "uncertainty_sources": ["string"],
-      "suggested_research": ["string"]
-    }
-  }
+  "validated_answer": "string (required)",
+  "position": "string (required)",
+  "reasoning": "string (required)",
+  "legal_accuracy": "string (required)",
+  "citation_quality": "string (required)",
+  "omitted_articles": "string (optional)",
+  "citation_corrections": "string (optional)"
 }
 ```
 
-### BiasReport
+#### QA
 ```json
 {
-  "task_id": 1,
-  "bias_scores": {
-    "demographic": 0.05,
-    "professional": 0.12,
-    "temporal": 0.03,
-    "geographic": 0.08,
-    "confirmation": 0.10,
-    "anchoring": 0.07
-  },
-  "total_bias_score": 0.23,
-  "bias_level": "low",
-  "mitigation_recommendations": [
-    "string"
-  ],
-  "generated_at": "2024-01-15T12:00:00Z"
+  "validated_answer": "string (required)",
+  "position": "string (required)",
+  "reasoning": "string (required)",
+  "source_accuracy": "string (required)",
+  "completeness": "string (required)"
 }
 ```
 
-**Bias Levels:**
-- `low`: total_bias_score ≤ 0.5
-- `medium`: 0.5 < total_bias_score ≤ 1.0
-- `high`: total_bias_score > 1.0
+#### CLASSIFICATION
+```json
+{
+  "validated_labels": ["string"] (required),
+  "reasoning": "string (required)",
+  "confidence_per_label": {"label": 0.9} (required),
+  "missed_labels": "string (optional)"
+}
+```
+
+### FeedbackRating
+```json
+{
+  "id": 1,
+  "user_id": 2,
+  "feedback_id": 1,
+  "helpfulness_score": 4,
+  "created_at": "2024-01-15T11:30:00Z"
+}
+```
+
+### FeedbackRatingCreate
+```json
+{
+  "user_id": 2,
+  "helpfulness_score": 4
+}
+```
+
+**Field Validation:**
+- `helpfulness_score`: Integer from 1 to 5
 
 ## Configuration Schemas
 
@@ -365,20 +332,19 @@ This document describes the data structures used throughout the RLCF API. All sc
           },
           "default": 0.0
         }
+      },
+      "PROFESSIONAL_EXPERIENCE": {
+        "weight": 0.4,
+        "scoring_function": {
+          "type": "formula",
+          "expression": "0.5 + 0.2 * sqrt(value)",
+          "default": 0.0
+        }
       }
     }
   }
 }
 ```
-
-**Scoring Function Types:**
-- `map`: Discrete value mapping
-- `formula`: Mathematical expression evaluation
-
-**Mathematical Constraints:**
-- Authority weights must sum to 1.0
-- All scores are non-negative
-- Authority scores are clamped to [0.0, 2.0]
 
 ### TaskConfig
 ```json
@@ -386,17 +352,94 @@ This document describes the data structures used throughout the RLCF API. All sc
   "task_types": {
     "QA": {
       "input_data": {
-        "context": "str",
-        "question": "str"
+        "question": "str",
+        "context": "str"
       },
-      "ground_truth_keys": ["answers"],
       "feedback_data": {
         "validated_answer": "str",
-        "position": "Literal['correct', 'incorrect']",
+        "position": "str",
         "reasoning": "str"
-      }
+      },
+      "ground_truth_keys": ["validated_answer"]
     }
   }
+}
+```
+
+## Assignment & Administrative Schemas
+
+### TaskAssignment
+```json
+{
+  "id": 1,
+  "task_id": 1,
+  "user_id": 1,
+  "role": "evaluator",
+  "assigned_at": "2024-01-15T09:00:00Z"
+}
+```
+
+### TaskAssignmentCreate
+```json
+{
+  "user_id": 1,
+  "role": "evaluator"
+}
+```
+
+### BiasReport
+```json
+{
+  "id": 1,
+  "task_id": 1,
+  "user_id": 1,
+  "bias_type": "PROFESSIONAL_CLUSTERING",
+  "bias_score": 0.23,
+  "calculated_at": "2024-01-15T12:00:00Z"
+}
+```
+
+## Export Schemas
+
+### ExportRequest
+```json
+{
+  "task_type": "STATUTORY_RULE_QA",
+  "export_format": "sft"
+}
+```
+
+**Export Formats:**
+- `sft`: Supervised Fine-Tuning format
+- `preference`: Preference learning format
+
+## Analytics Schemas
+
+### SystemMetrics
+```json
+{
+  "totalTasks": 150,
+  "totalUsers": 25,
+  "totalFeedback": 450,
+  "averageConsensus": 0.72,
+  "activeEvaluations": 12,
+  "completionRate": 0.85
+}
+```
+
+## Bulk Operations Schemas
+
+### BulkUserCreate
+```json
+{
+  "usernames": ["user1", "user2", "user3"]
+}
+```
+
+### YamlContentRequest
+```json
+{
+  "yaml_content": "tasks:\n  - task_type: QA\n    input_data:\n      question: ...\n      context: ..."
 }
 ```
 
@@ -406,124 +449,33 @@ This document describes the data structures used throughout the RLCF API. All sc
 ```json
 {
   "name": "openai/gpt-4",
-  "api_key": "string",
+  "api_key": "sk-...",
   "temperature": 0.7,
   "max_tokens": 1000
 }
 ```
 
-### AIGenerationRequest
-```json
-{
-  "task_type": "STATUTORY_RULE_QA",
-  "input_data": {},
-  "model_config": {
-    "name": "openai/gpt-4",
-    "api_key": "string",
-    "temperature": 0.7
-  }
-}
-```
-
-### AIGenerationResponse
-```json
-{
-  "success": true,
-  "response_data": {
-    "answer": "string",
-    "confidence": 0.9,
-    "reasoning": "string"
-  },
-  "model_used": "openai/gpt-4"
-}
-```
-
-## Devil's Advocate Schemas
-
-### DevilsAdvocateAssignment
-```json
-{
-  "id": 1,
-  "task_id": 1,
-  "user_id": 5,
-  "instructions": "string",
-  "assigned_at": "2024-01-15T09:00:00Z"
-}
-```
-
-### DevilsAdvocatePrompts
-```json
-{
-  "task_type": "STATUTORY_RULE_QA",
-  "base_prompts": [
-    "What are the potential weaknesses in this reasoning?",
-    "Are there alternative interpretations that weren't considered?"
-  ],
-  "task_specific_prompts": [
-    "What important statutory nuances or exceptions are missing?"
-  ],
-  "count": 3
-}
-```
-
-## Export Schemas
-
-### TaskExportOptions
-```json
-{
-  "format": "csv",
-  "task_type": "QA",
-  "start_date": "2024-01-01",
-  "end_date": "2024-12-31",
-  "include_feedback": true
-}
-```
-
-**Export Formats:**
-- `csv`: Comma-separated values
-- `json`: JSON format
-- `yaml`: YAML format
-- `scientific`: Academic publication format
-
 ## Validation Rules
 
 ### General Rules
-- All dates in ISO 8601 format
-- Scores normalized to appropriate ranges
-- Required fields must be present
-- Enum values must match exactly
+- All timestamps are in ISO 8601 format
+- All IDs are positive integers
+- All scores are floats between 0.0 and specified maximum
+- All enum values must match exactly (case-sensitive)
 
-### Authority Score Constraints
-- `authority_score`: [0.0, 2.0]
-- `track_record_score`: [0.0, 1.0]
-- `baseline_credential_score`: [0.0, 2.0]
+### String Limits
+- Usernames: 3-50 characters
+- Feedback reasoning: 10-5000 characters
+- Task questions: 10-2000 characters
 
-### Mathematical Constraints
-- Authority weights must sum to 1.0
-- Disagreement threshold: [0.0, 1.0]
-- Update factor: [0.0, 1.0]
+### Score Ranges
+- Authority scores: 0.0 to 2.0+ (unlimited upper bound)
+- Feedback scores: 0.0 to 10.0
+- Confidence scores: 0.0 to 1.0
+- Helpfulness ratings: 1 to 5 (integer)
 
-### Text Constraints
-- `username`: 3-50 characters, alphanumeric + underscore
-- `reasoning`: Minimum 10 characters for meaningful feedback
-- API keys: Not logged or stored in plain text
+## Error Response Schema
 
-## Error Responses
-
-### ValidationError
-```json
-{
-  "detail": [
-    {
-      "loc": ["field_name"],
-      "msg": "field required",
-      "type": "value_error.missing"
-    }
-  ]
-}
-```
-
-### HTTPException
 ```json
 {
   "detail": "Error description",
@@ -532,9 +484,13 @@ This document describes the data structures used throughout the RLCF API. All sc
 }
 ```
 
+**Common Error Codes:**
+- `VALIDATION_ERROR`: Schema validation failed
+- `NOT_FOUND`: Resource not found
+- `PERMISSION_DENIED`: API key required
+- `CONFLICT`: Duplicate resource
+- `INTERNAL_ERROR`: Server error
+
 ---
 
-**Next Steps:**
-- [Authentication](authentication.md) - API security setup
-- [API Endpoints](endpoints.md) - Complete endpoint reference
-- [API Usage Examples](../examples/api-usage/) - Code examples
+**Note**: All schemas are automatically validated by Pydantic. The actual implementation may include additional computed fields or omit certain fields for performance reasons (e.g., empty credential lists to avoid lazy loading).

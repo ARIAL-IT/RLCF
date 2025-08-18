@@ -7,12 +7,14 @@
 **RLCF (Reinforcement Learning from Community Feedback)** is a novel AI alignment methodology specifically designed for Artificial Legal Intelligence (ALI) systems. Unlike traditional RLHF, RLCF addresses the unique epistemological challenges of the legal domain:
 
 **Key Differences:**
+
 - **Dynamic Authority**: Expertise evolves based on demonstrated competence rather than static credentials
 - **Uncertainty Preservation**: Disagreement among experts is maintained as valuable information
 - **Constitutional Governance**: Algorithmic implementation of legal principles ensures ethical operation
 - **Six-Dimensional Bias Detection**: Comprehensive bias analysis beyond traditional demographic factors
 
 **Mathematical Foundation:**
+
 - Authority scoring: A_u(t) = α·B_u + β·T_u(t-1) + γ·P_u(t)
 - Disagreement quantification: δ = -(1/log|P|) Σ ρ(p)log ρ(p)
 - Bias analysis: B_total = √(Σ b_i²) across 6 dimensions
@@ -20,12 +22,14 @@
 ### Who should use the RLCF framework?
 
 **Primary Users:**
+
 - **Academic Researchers**: Studying AI alignment, legal AI, expert validation methodologies
 - **Legal AI Developers**: Building systems requiring expert validation and bias detection
 - **Legal Professionals**: Participating in AI evaluation and providing domain expertise
 - **AI Safety Researchers**: Investigating constitutional AI and uncertainty preservation
 
 **Use Cases:**
+
 - Legal AI system evaluation and training
 - Expert validation methodology research
 - Bias detection and mitigation studies
@@ -34,22 +38,24 @@
 
 ### What are the four constitutional principles of RLCF?
 
-1. **Dynamic Authority (Auctoritas Dynamica)**: Authority earned through demonstrated competence
-2. **Preserved Uncertainty (Incertitudo Conservata)**: Disagreement as information, not noise
-3. **Transparent Process (Processus Transparens)**: All validation steps auditable and reproducible
-4. **Universal Expertise (Peritia Universalis)**: Domain boundaries are emergent, not prescribed
+1. **Dynamic Authority**: Authority earned through demonstrated competence
+2. **Preserved Uncertainty**: Disagreement as information, not noise
+3. **Transparent Process**: All validation steps auditable and reproducible
+4. **Universal Expertise**: Domain boundaries are emergent, not prescribed
 
 ## Technical Questions
 
 ### What are the system requirements?
 
 **Minimum Requirements:**
+
 - Python 3.8 or higher
 - 4GB RAM
 - 10GB disk space
 - SQLite support (included with Python)
 
 **Recommended for Production:**
+
 - Python 3.11+
 - 8GB+ RAM
 - 50GB+ disk space
@@ -58,6 +64,7 @@
 - Load balancer for high availability
 
 **Supported Operating Systems:**
+
 - Linux (Ubuntu 20.04+, CentOS 8+)
 - macOS (10.15+)
 - Windows 10+
@@ -75,6 +82,7 @@ authority_weights:
 ```
 
 **Research Scenarios:**
+
 - **Credential-heavy**: α=0.6, β=0.3, γ=0.1 (traditional academic emphasis)
 - **Performance-only**: α=0.0, β=0.7, γ=0.3 (pure meritocracy)
 - **Balanced**: α=0.3, β=0.5, γ=0.2 (default RLCF configuration)
@@ -86,17 +94,20 @@ authority_weights:
 The disagreement threshold (τ) determines when to preserve uncertainty vs. generate consensus:
 
 **Default:** τ = 0.4
+
 - **δ ≤ 0.4**: Generate consensus output
 - **δ > 0.4**: Generate uncertainty-preserving output with alternative positions
 - **δ > 0.6**: Trigger structured discussion phase
 
 **Research Applications:**
+
 - **High uncertainty preservation**: τ = 0.2 (preserve more disagreement)
 - **Consensus-focused**: τ = 0.6 (force consensus more often)
 
 ### What task types are supported?
 
 **Core Legal Tasks:**
+
 1. **QA**: Legal question answering
 2. **STATUTORY_RULE_QA**: Statutory interpretation
 3. **CLASSIFICATION**: Document categorization
@@ -128,6 +139,7 @@ CUSTOM_TASK:
 ### How do I ensure reproducible experiments?
 
 **Configuration Management:**
+
 ```bash
 # Version control configurations
 git add model_config.yaml task_config.yaml
@@ -136,12 +148,14 @@ git tag -a "exp_condition_A" -m "Authority weights: 0.2/0.3/0.5"
 ```
 
 **Data Export:**
+
 ```bash
 # Export complete dataset for analysis
 curl "http://localhost:8000/export/dataset?format=scientific&experiment_id=study_2024" > data.json
 ```
 
 **Documentation:**
+
 - Document all parameter changes
 - Include configuration files in publication supplements
 - Share anonymized datasets when possible
@@ -150,11 +164,13 @@ curl "http://localhost:8000/export/dataset?format=scientific&experiment_id=study
 ### What sample sizes are recommended?
 
 **Minimum Sample Sizes:**
+
 - **Pilot studies**: 15-30 experts per condition
 - **Full validation**: 100+ experts for statistical power
 - **Cross-validation**: Multiple independent panels
 
 **Power Analysis:**
+
 ```python
 from statsmodels.stats.power import ttest_power
 
@@ -167,15 +183,16 @@ required_n = ttest_power(effect_size, power, alpha)
 print(f"Required sample size per condition: {required_n}")
 ```
 
-### How do I handle ethics and IRB approval?
+### How do I handle ethics?
 
 **Human Subjects Considerations:**
-- IRB approval required for research involving human participants
+
 - Informed consent with clear data usage explanation
 - Privacy protection for expert evaluations
 - Right to withdraw and data deletion
 
 **Ethical Guidelines:**
+
 - Fair compensation for expert time
 - Academic credit where appropriate
 - Data anonymization and aggregation
@@ -184,6 +201,7 @@ print(f"Required sample size per condition: {required_n}")
 ### How do I analyze bias in my results?
 
 **Six-Dimensional Bias Analysis:**
+
 ```python
 # Export bias reports
 bias_data = requests.get("http://localhost:8000/bias/summary").json()
@@ -201,8 +219,9 @@ for bias_type in bias_types:
 ```
 
 **Interpretation:**
+
 - **Total bias < 0.5**: Low bias level
-- **Total bias 0.5-1.0**: Medium bias level  
+- **Total bias 0.5-1.0**: Medium bias level
 - **Total bias > 1.0**: High bias level
 
 ## Technical Issues
@@ -212,6 +231,7 @@ for bias_type in bias_types:
 **Common Issues:**
 
 1. **Port already in use:**
+
 ```bash
 # Check what's using port 8000
 lsof -i :8000
@@ -221,6 +241,7 @@ uvicorn rlcf_framework.main:app --port 8001
 ```
 
 2. **Missing dependencies:**
+
 ```bash
 # Reinstall dependencies
 pip install -r requirements.txt
@@ -230,6 +251,7 @@ python --version  # Should be 3.8+
 ```
 
 3. **Database issues:**
+
 ```bash
 # Check database file permissions
 ls -la rlcf.db
@@ -240,6 +262,7 @@ uvicorn rlcf_framework.main:app --reload
 ```
 
 4. **Configuration errors:**
+
 ```bash
 # Validate configuration
 python -c "from rlcf_framework.config import load_model_config; print(load_model_config())"
@@ -248,6 +271,7 @@ python -c "from rlcf_framework.config import load_model_config; print(load_model
 ### API calls are failing. How do I debug?
 
 **Check Request Format:**
+
 ```bash
 # Ensure proper headers
 curl -X POST "http://localhost:8000/users/" \
@@ -256,12 +280,14 @@ curl -X POST "http://localhost:8000/users/" \
 ```
 
 **Enable Debug Logging:**
+
 ```python
 import logging
 logging.getLogger("rlcf_framework").setLevel(logging.DEBUG)
 ```
 
 **Common HTTP Errors:**
+
 - **400 Bad Request**: Check JSON syntax and required fields
 - **403 Forbidden**: Admin endpoints require API key
 - **422 Unprocessable Entity**: Pydantic validation error
@@ -270,6 +296,7 @@ logging.getLogger("rlcf_framework").setLevel(logging.DEBUG)
 ### How do I improve performance?
 
 **Database Optimization:**
+
 ```sql
 -- Add indexes for common queries
 CREATE INDEX idx_feedback_task_user ON feedback(response_id, user_id);
@@ -277,6 +304,7 @@ CREATE INDEX idx_tasks_type_status ON legal_tasks(task_type, status);
 ```
 
 **Async Optimization:**
+
 ```python
 # Use async context managers
 async with SessionLocal() as session:
@@ -285,6 +313,7 @@ async with SessionLocal() as session:
 ```
 
 **Caching:**
+
 ```python
 # Enable Redis caching
 REDIS_URL = "redis://localhost:6379"
@@ -292,6 +321,7 @@ cache = redis.Redis.from_url(REDIS_URL)
 ```
 
 **Connection Pooling:**
+
 ```python
 # Increase connection pool size
 engine = create_async_engine(
@@ -322,6 +352,7 @@ baseline_credentials:
 ```
 
 **Formula-based scoring:**
+
 ```yaml
 YEARS_EXPERIENCE:
   weight: 0.3
@@ -334,6 +365,7 @@ YEARS_EXPERIENCE:
 ### How do I update configuration in production?
 
 **Safe Configuration Updates:**
+
 ```bash
 # 1. Backup current configuration
 cp model_config.yaml model_config.backup.yaml
@@ -353,6 +385,7 @@ curl "http://production-server/config/model"
 
 **Constitutional Validation:**
 The system automatically validates changes against constitutional principles:
+
 - Authority weights must sum to 1.0
 - No single component can exceed 60% (preserves democratic oversight)
 - Disagreement threshold cannot be below 0.1 (preserves dialectical nature)
@@ -360,6 +393,7 @@ The system automatically validates changes against constitutional principles:
 ### How do I create custom task handlers?
 
 1. **Define Task Schema:**
+
 ```yaml
 # task_config.yaml
 MY_CUSTOM_TASK:
@@ -375,6 +409,7 @@ MY_CUSTOM_TASK:
 ```
 
 2. **Implement Handler:**
+
 ```python
 # task_handlers/my_custom_handler.py
 from .base import BaseTaskHandler
@@ -383,13 +418,14 @@ class MyCustomTaskHandler(BaseTaskHandler):
     async def aggregate_feedback(self) -> Dict[str, Any]:
         # Custom aggregation logic
         pass
-    
+  
     def calculate_consistency(self, feedback: Feedback, result: Dict) -> float:
         # Custom consistency calculation
         pass
 ```
 
 3. **Register Handler:**
+
 ```python
 # task_handlers/__init__.py
 from .my_custom_handler import MyCustomTaskHandler
@@ -405,6 +441,7 @@ TASK_HANDLERS = {
 ### How do I deploy RLCF in production?
 
 **Docker Deployment:**
+
 ```dockerfile
 FROM python:3.11-slim
 
@@ -423,6 +460,7 @@ CMD ["uvicorn", "rlcf_framework.main:app", "--host", "0.0.0.0", "--port", "8000"
 ```
 
 **Environment Variables:**
+
 ```bash
 export DATABASE_URL="postgresql://user:pass@localhost/rlcf"
 export ADMIN_API_KEY="your-secure-key"
@@ -431,14 +469,15 @@ export LOG_LEVEL="INFO"
 ```
 
 **Nginx Configuration:**
+
 ```nginx
 server {
     listen 443 ssl http2;
     server_name api.yourdomain.com;
-    
+  
     ssl_certificate /etc/ssl/certs/api.yourdomain.com.crt;
     ssl_certificate_key /etc/ssl/private/api.yourdomain.com.key;
-    
+  
     location / {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
@@ -452,6 +491,7 @@ server {
 ### How do I scale RLCF for high traffic?
 
 **Horizontal Scaling:**
+
 ```yaml
 # docker-compose.yml
 version: '3.8'
@@ -476,11 +516,13 @@ services:
 ```
 
 **Database Scaling:**
+
 - Use PostgreSQL with read replicas
 - Implement connection pooling
 - Add Redis for session storage and caching
 
 **Monitoring:**
+
 ```python
 # Add Prometheus metrics
 from prometheus_client import Counter, Histogram
@@ -496,11 +538,13 @@ REQUEST_LATENCY = Histogram('rlcf_request_duration_seconds', 'Request latency')
 **Diagnostic Steps:**
 
 1. **Check Configuration:**
+
 ```bash
 curl "http://localhost:8000/config/model" | jq '.authority_weights'
 ```
 
 2. **Verify Calculations:**
+
 ```python
 # Manual calculation
 baseline = 1.2  # From credentials
@@ -512,6 +556,7 @@ print(f"Expected authority: {authority}")
 ```
 
 3. **Check User Data:**
+
 ```bash
 curl "http://localhost:8000/users/1" | jq '.authority_score, .baseline_credential_score, .track_record_score'
 ```
@@ -519,11 +564,13 @@ curl "http://localhost:8000/users/1" | jq '.authority_score, .baseline_credentia
 ### Disagreement scores don't match expectations
 
 **Common Issues:**
+
 - Insufficient feedback diversity
 - Authority weighting skewing results
 - Threshold configuration
 
 **Debug Shannon Entropy:**
+
 ```python
 import numpy as np
 
@@ -531,10 +578,10 @@ def calculate_disagreement_manual(positions):
     """Manual disagreement calculation for verification."""
     total_weight = sum(positions.values())
     probabilities = [w/total_weight for w in positions.values()]
-    
+  
     entropy = -sum(p * np.log(p) for p in probabilities if p > 0)
     normalized_entropy = entropy / np.log(len(probabilities))
-    
+  
     return normalized_entropy
 
 # Example
@@ -546,16 +593,19 @@ print(f"Manual disagreement: {disagreement}")
 ### Getting help and support
 
 **Community Resources:**
+
 - GitHub Issues: Bug reports and feature requests
 - Documentation: Comprehensive guides and examples
 - Academic Papers: Theoretical foundation and validation studies
 
 **Contribution Guidelines:**
+
 - Follow [Contributing Guidelines](../development/contributing.md)
 - Include mathematical validation for algorithm changes
 - Provide academic references for theoretical contributions
 
 **Professional Support:**
+
 - Academic collaboration opportunities
 - Custom implementation consulting
 - Training and workshops for research teams
@@ -565,6 +615,7 @@ print(f"Manual disagreement: {disagreement}")
 **Still Have Questions?**
 
 Check the complete documentation:
+
 - [Quick Start Guide](../guides/quick-start.md) - Get started quickly
 - [Academic Research Guide](../guides/academic-research.md) - Research methodology
 - [API Reference](../api/endpoints.md) - Complete API documentation

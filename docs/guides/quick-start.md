@@ -5,8 +5,9 @@ This guide will get you up and running with the RLCF framework in 15 minutes.
 ## Prerequisites
 
 - Python 3.8 or higher
+- Node.js 18+ and npm (for frontend)
 - Git
-- Basic familiarity with REST APIs
+- Basic familiarity with REST APIs and React
 
 ## Installation
 
@@ -35,13 +36,25 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Start the API Server
+### 4. Start the Backend API Server
 
 ```bash
 uvicorn rlcf_framework.main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`
+
+### 5. Start the Frontend (Optional)
+
+For the full web interface experience:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend will be available at `http://localhost:5173`
 
 ## First Steps
 

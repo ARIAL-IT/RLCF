@@ -1,11 +1,11 @@
 authority_weights:
-  baseline_credentials: 0.3
-  track_record: 0.5
+  baseline_credentials: 0.4
+  track_record: 0.4
   recent_performance: 0.2
 track_record:
   update_factor: 0.05
 thresholds:
-  disagreement: 0.4
+  disagreement: 0.3
 baseline_credentials:
   types:
     ACADEMIC_DEGREE:
@@ -19,39 +19,3 @@ baseline_credentials:
           PhD: 1.5
         expression: ''
         default: 0.0
-    PROFESSIONAL_EXPERIENCE:
-      weight: 0.4
-      scoring_function:
-        type: formula
-        values: {}
-        expression: 0.5 + 0.2 * sqrt(value)
-        default: 0.0
-    PUBLICATION:
-      weight: 0.2
-      scoring_function:
-        type: formula
-        values: {}
-        expression: min(0.8 + 0.1 * value, 1.4)
-        default: 0.0
-    INSTITUTIONAL_ROLE:
-      weight: 0.1
-      scoring_function:
-        type: map
-        values:
-          Junior: 0.7
-          Senior: 1.1
-          Partner: 1.4
-          default: 0.0
-        expression: ''
-        default: 0.0
-ai_models:
-  - name: gpt-3.5-turbo-openrouter
-    type: openrouter
-    api_key_env: OPENROUTER_API_KEY
-    route: openai/gpt-3.5-turbo
-  - name: llama-2-7b-chat-local
-    type: local
-    endpoint: http://localhost:8000/v1/completions
-  - name: mock-model
-    type: local
-    path: /path/to/local/model_weights

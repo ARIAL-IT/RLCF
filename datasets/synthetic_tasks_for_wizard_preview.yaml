@@ -1,0 +1,94 @@
+tasks:
+  - task_type: QA
+    input_data:
+      question: "What is the principle of 'res judicata' and when does it apply?"
+      context: "Res judicata is a legal principle that means a matter has been finally decided on its merits by a court of competent jurisdiction and may not be litigated again by the same parties."
+    ai_response:
+      message: "Res judicata, literally meaning 'a matter judged,' is a fundamental legal doctrine that prevents the same parties from re-litigating a case that has already been decided by a competent court. It applies when: (1) there is a final judgment on the merits, (2) the parties are the same or in privity, and (3) the cause of action is identical. This principle promotes judicial efficiency and prevents inconsistent judgments."
+
+  - task_type: STATUTORY_RULE_QA
+    input_data:
+      question: "Un condomino può installare un impianto fotovoltaico sul lastrico solare condominiale senza autorizzazione dell'assemblea?"
+      rule_id: "CODICE_CIVILE_ART1122_BIS"
+      context_full: "Art. 1122-bis del Codice Civile stabilisce che ciascun condomino può installare a proprie spese impianti per la produzione di energia da fonti rinnovabili destinati al servizio della propria unità immobiliare..."
+      context_count: 1
+      relevant_articles: "Art. 1122-bis Codice Civile"
+      category: "Condominio e Comunione"
+      tags: "Energia Rinnovabile, Lastrico Solare, Autorizzazioni"
+      metadata_full: "{\"source\": \"legal_database\", \"jurisdiction\": \"Italy\"}"
+    ai_response:
+      message: "Secondo l'art. 1122-bis del Codice Civile, ciascun condomino può installare a proprie spese impianti per la produzione di energia da fonti rinnovabili destinati al servizio della propria unità immobiliare. Tuttavia, è necessario: 1) Comunicare preventivamente all'amministratore l'intenzione di procedere all'installazione; 2) Allegare una relazione tecnica; 3) Rispettare il decoro architettonico. Nel caso del lastrico solare condominiale, l'installazione può avvenire ma deve rispettare i diritti degli altri condomini e le disposizioni del regolamento condominiale."
+
+  - task_type: CLASSIFICATION
+    input_data:
+      text: "The employee shall not disclose any trade secrets during or after the term of employment. Failure to comply will result in immediate termination and potential legal action."
+      unit: "clause"
+    ai_response:
+      message: "This clause can be classified under multiple legal categories: 1) Employment Law - governs the relationship between employer and employee; 2) Confidentiality - establishes non-disclosure obligations; 3) Intellectual Property - protects trade secrets; 4) Contract Law - defines contractual obligations and remedies."
+      labels: ["employment", "confidentiality", "intellectual_property", "contract"]
+
+  - task_type: SUMMARIZATION
+    input_data:
+      document: "The European Court of Justice (ECJ) issued a landmark ruling in Case C-123/45, 'Data Privacy vs. National Security'. The court found that the mass, indiscriminate retention of personal data by national governments is incompatible with the EU Charter of Fundamental Rights. The ruling establishes that any data retention must be targeted, proportionate, and subject to judicial oversight. Member states have 18 months to comply with the new standards or face significant penalties."
+    ai_response:
+      message: "In Case C-123/45, the ECJ ruled that mass surveillance programs violate EU fundamental rights. The court requires data retention to be targeted and proportionate with judicial oversight. Member states must comply within 18 months or face penalties."
+
+  - task_type: PREDICTION
+    input_data:
+      facts: "A company discovered a data breach affecting 50,000 user records including names, emails, and encrypted passwords. They notified the supervisory authority 76 hours after becoming aware of the breach and informed affected users via email 5 days later."
+    ai_response:
+      message: "Based on GDPR Article 33 and 34, this case likely constitutes a violation. The notification to supervisory authority exceeded the 72-hour requirement by 4 hours, and user notification took 5 days without clear justification for delay. Potential penalties include administrative fines up to 4% of annual turnover. Mitigating factors include the encryption of passwords and prompt remedial action."
+
+  - task_type: NLI
+    input_data:
+      premise: "The contract shall be valid for a term of five (5) years from the Effective Date, unless terminated earlier in accordance with the provisions herein."
+      hypothesis: "The agreement will automatically expire after exactly 5 years."
+    ai_response:
+      message: "The relationship is NEUTRAL. While the premise states a 5-year term, it includes the caveat 'unless terminated earlier,' which means the contract could end before 5 years. The hypothesis assumes automatic expiration after exactly 5 years, but this doesn't necessarily follow from the premise due to the termination provisions."
+
+  - task_type: NER
+    input_data:
+      tokens: ["On", "May", "15th", "2024", ",", "the", "European", "Commission", "fined", "Meta", "Platforms", "Inc.", "€", "1.2", "billion", "for", "GDPR", "violations", "."]
+      text: "On May 15th, 2024, the European Commission fined Meta Platforms Inc. €1.2 billion for GDPR violations."
+    ai_response:
+      message: "Identified entities: DATE: May 15th, 2024; ORGANIZATION: European Commission, Meta Platforms Inc.; MONEY: €1.2 billion; LAW: GDPR; EVENT: fined for violations."
+      tags: ["O", "B-DATE", "I-DATE", "I-DATE", "O", "O", "B-ORG", "I-ORG", "O", "B-ORG", "I-ORG", "I-ORG", "B-MONEY", "I-MONEY", "I-MONEY", "O", "B-LAW", "O", "O"]
+
+  - task_type: DRAFTING
+    input_data:
+      source: "Employment Agreement Template"
+      task: "Add a remote work policy clause"
+      instruction: "Draft a comprehensive remote work clause that balances flexibility with security requirements"
+    ai_response:
+      message: "REMOTE WORK POLICY: Employee may work remotely up to 3 days per week with prior supervisor approval. Employee must: (a) maintain secure internet connection with VPN access; (b) ensure confidential workspace free from unauthorized access; (c) comply with all company IT security policies; (d) be available during core business hours (9 AM - 3 PM local time); (e) participate in mandatory in-person meetings as required. Company reserves the right to revoke remote work privileges for performance or security concerns."
+
+  - task_type: RISK_SPOTTING
+    input_data:
+      text: "Our privacy policy states: 'We may share user data with our trusted third-party partners for marketing purposes. Users can opt-out by contacting support. We retain all data indefinitely for business purposes.'"
+    ai_response:
+      message: "CRITICAL RISKS IDENTIFIED: 1) GDPR Violation - data sharing without explicit consent (Article 6 basis unclear); 2) Indefinite Retention - violates data minimization principle (Article 5); 3) Opt-out vs Opt-in - marketing requires explicit consent under GDPR; 4) Vague 'trusted partners' - lacks transparency required by Article 14; 5) 'Business purposes' - too broad, needs specific legal basis. Recommend immediate policy revision to ensure GDPR compliance."
+      risk_labels: ["privacy", "gdpr_compliance", "consent_management", "data_retention"]
+      severity: 9
+
+  - task_type: DOCTRINE_APPLICATION
+    input_data:
+      facts: "A surgeon, while performing a complex cardiac operation, accidentally leaves a surgical sponge inside the patient. The patient suffers complications requiring additional surgery."
+      question: "Can the patient sue for medical malpractice under the doctrine of 'res ipsa loquitur'?"
+    ai_response:
+      message: "YES - Res ipsa loquitur applies. This doctrine allows negligence to be inferred when: (1) the injury doesn't ordinarily occur without negligence, (2) the instrumentality was under defendant's control, and (3) the plaintiff didn't contribute to the injury. Surgical sponges don't remain in patients without negligence, the surgical field was entirely under the surgeon's control, and the unconscious patient couldn't contribute to the error. This is a classic res ipsa case, shifting the burden to the surgeon to explain how the incident occurred without negligence."
+
+  # Additional task types for comprehensive testing
+  - task_type: RISK_SPOTTING
+    input_data:
+      text: "Employees are required to use their personal devices for work and install company monitoring software with full device access."
+    ai_response:
+      message: "MAJOR PRIVACY RISKS: 1) Personal device monitoring may violate employee privacy rights; 2) Company access to personal data creates liability; 3) Potential violation of local privacy laws; 4) Security risks from mixed personal/corporate data; 5) Unclear data ownership boundaries. Severity: HIGH. Recommend BYOD policy with containerization or provide company devices."
+      risk_labels: ["employee_privacy", "byod_policy", "data_protection", "monitoring"]
+      severity: 8
+
+  - task_type: DOCTRINE_APPLICATION
+    input_data:
+      facts: "A company publishes false statements about a competitor's product safety, knowing them to be untrue, causing significant financial harm to the competitor."
+      question: "Does this constitute tortious interference with business relations?"
+    ai_response:
+      message: "YES - This likely constitutes tortious interference. Elements satisfied: (1) valid business relationship between competitor and its customers, (2) defendant's knowledge of the relationship, (3) intentional interference through false statements, (4) improper means (knowingly false statements), and (5) resulting damage. The publication of knowingly false safety information specifically targets the competitor's business relationships and uses improper means, distinguishing it from legitimate competition."

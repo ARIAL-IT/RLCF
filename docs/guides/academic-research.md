@@ -17,24 +17,29 @@ The RLCF framework is designed specifically for rigorous academic research with 
 ### 1. Experimental Design Phase
 
 #### Define Research Questions
+
 Common research areas supported by RLCF:
 
 **Authority Weighting Studies**:
+
 - How do different authority weighting schemes affect consensus quality?
 - What is the optimal balance between credentials and performance?
 - How does authority adaptation speed impact system stability?
 
 **Uncertainty Preservation Analysis**:
+
 - When should AI systems preserve disagreement vs. force consensus?
 - How does uncertainty threshold affect decision quality?
 - What is the relationship between expert disagreement and accuracy?
 
 **Bias Detection Research**:
+
 - Which types of bias are most prevalent in expert evaluation?
 - How effective are different bias mitigation strategies?
 - What demographic factors correlate with evaluation patterns?
 
 **Constitutional AI Validation**:
+
 - How well do algorithmic constitutional principles work in practice?
 - What trade-offs exist between different constitutional principles?
 - How can constitutional frameworks be adapted to different domains?
@@ -42,6 +47,7 @@ Common research areas supported by RLCF:
 #### Formulate Hypotheses
 
 Example hypothesis structure:
+
 ```
 H1: Increasing the weight of recent performance (γ) from 0.2 to 0.5 
     will improve system responsiveness but increase authority volatility.
@@ -75,12 +81,14 @@ authority_weights:
 
 #### Expert Panel Requirements
 
-**Minimum Sample Size**: 
+**Minimum Sample Size**:
+
 - Small-scale studies: 15-30 experts per condition
 - Large-scale validation: 100+ experts for statistical power
 - Cross-validation: Multiple independent expert panels
 
 **Demographic Considerations**:
+
 ```python
 # Track participant demographics for bias analysis
 participant_demographics = {
@@ -95,17 +103,19 @@ participant_demographics = {
 #### Recruitment Strategies
 
 **Academic Networks**:
+
 - Law school faculty and researchers
 - Bar association member networks
 - Legal academic conferences and workshops
 
 **Professional Networks**:
+
 - Practicing attorneys across specializations
 - Judges and judicial clerks
 - Legal technology professionals
 
 **Ethical Considerations**:
-- IRB approval for human subjects research
+
 - Informed consent for data collection
 - Privacy protection for evaluation data
 - Clear explanation of research purposes
@@ -115,6 +125,7 @@ participant_demographics = {
 #### Experimental Setup
 
 **Environment Configuration**:
+
 ```bash
 # Set up research environment
 export RESEARCH_MODE=true
@@ -126,6 +137,7 @@ uvicorn rlcf_framework.main:app --reload
 ```
 
 **Task Preparation**:
+
 ```python
 # Create balanced task sets for experimental control
 task_set_design = {
@@ -139,12 +151,14 @@ task_set_design = {
 #### Data Collection Protocol
 
 **Blind Evaluation Phase**:
+
 1. Participants evaluate AI responses independently
 2. No access to other participant evaluations
 3. Standardized evaluation forms per task type
 4. Time tracking for evaluation duration
 
 **Structured Discussion Phase** (if disagreement > threshold):
+
 1. Reveal aggregated positions without individual attribution
 2. Moderated discussion of reasoning differences
 3. Final position recording after discussion
@@ -153,6 +167,7 @@ task_set_design = {
 #### Quality Control Measures
 
 **Attention Checks**:
+
 ```json
 {
   "control_task": {
@@ -164,6 +179,7 @@ task_set_design = {
 ```
 
 **Inter-Rater Reliability**:
+
 - Calculate Cohen's kappa for participant agreement
 - Track consistency within participants across tasks
 - Identify and handle outlier evaluation patterns
@@ -187,6 +203,7 @@ git tag -a "exp_condition_A" -m "Authority weights: 0.2/0.3/0.5"
 #### Parameter Tracking
 
 Maintain experimental log:
+
 ```yaml
 experiment_log:
   experiment_id: "authority_weighting_study_2024"
@@ -199,7 +216,7 @@ experiment_log:
       participants: 25
       tasks_completed: 1000
       config_file: "config_condition_A.yaml"
-      
+    
     condition_B:
       description: "Balanced weights (control)"
       participants: 25
@@ -224,6 +241,7 @@ curl "http://localhost:8000/aggregation/quality_metrics" > quality_metrics.json
 #### Statistical Analysis Framework
 
 **Descriptive Statistics**:
+
 ```python
 import pandas as pd
 import numpy as np
@@ -249,6 +267,7 @@ quality_metrics = {
 ```
 
 **Inferential Statistics**:
+
 ```python
 # Compare conditions using appropriate tests
 from scipy.stats import ttest_ind, mannwhitneyu, chi2_contingency
@@ -270,6 +289,7 @@ effect_size = cohens_d(condition_a_authority, condition_b_authority)
 ```
 
 **Bias Analysis**:
+
 ```python
 # Multi-dimensional bias analysis
 bias_correlations = {}
@@ -317,6 +337,7 @@ plt.savefig('research_results.png', dpi=300, bbox_inches='tight')
 #### Authority Weighting Analysis
 
 **Stability Metrics**:
+
 ```python
 def calculate_stability_metrics(authority_scores_over_time):
     """Calculate authority score stability metrics."""
@@ -331,6 +352,7 @@ def calculate_stability_metrics(authority_scores_over_time):
 ```
 
 **Quality Correlation**:
+
 ```python
 def analyze_authority_quality_correlation(data):
     """Analyze relationship between authority and evaluation quality."""
@@ -338,7 +360,7 @@ def analyze_authority_quality_correlation(data):
         data['authority_scores'], 
         data['evaluation_quality_scores']
     )
-    
+  
     return {
         'correlation_coefficient': correlation[0],
         'p_value': correlation[1],
@@ -350,18 +372,19 @@ def analyze_authority_quality_correlation(data):
 #### Uncertainty Preservation Effectiveness
 
 **Calibration Analysis**:
+
 ```python
 def analyze_confidence_calibration(predictions, actual_accuracy):
     """Analyze how well confidence scores predict actual accuracy."""
     from sklearn.calibration import calibration_curve
-    
+  
     fraction_of_positives, mean_predicted_value = calibration_curve(
         actual_accuracy, predictions, n_bins=10
     )
-    
+  
     # Calculate Brier score for calibration quality
     brier_score = np.mean((predictions - actual_accuracy) ** 2)
-    
+  
     return {
         'calibration_curve': (fraction_of_positives, mean_predicted_value),
         'brier_score': brier_score,
@@ -376,6 +399,7 @@ def analyze_confidence_calibration(predictions, actual_accuracy):
 #### Academic Writing Integration
 
 **LaTeX Export**:
+
 ```python
 def export_latex_table(results_dict, caption, label):
     """Export results as publication-ready LaTeX table."""
@@ -383,17 +407,18 @@ def export_latex_table(results_dict, caption, label):
     latex_table += f"\\caption{{{caption}}}\n"
     latex_table += f"\\label{{{label}}}\n"
     latex_table += "\\begin{tabular}{|l|c|c|c|}\n\\hline\n"
-    
+  
     # Add table content
     for condition, metrics in results_dict.items():
         latex_table += f"{condition} & {metrics['mean']:.3f} & "
         latex_table += f"{metrics['std']:.3f} & {metrics['p_value']:.3f} \\\\\n"
-    
+  
     latex_table += "\\hline\n\\end{tabular}\n\\end{table}"
     return latex_table
 ```
 
 **Reproducibility Package**:
+
 ```
 research_package/
 ├── README.md                    # Experiment description
@@ -442,6 +467,7 @@ Statistical analysis was performed using Python scientific computing libraries. 
 **Research Question**: What authority weighting scheme optimizes both accuracy and fairness?
 
 **Methodology**:
+
 1. Define multiple weight configurations
 2. Measure accuracy against ground truth
 3. Analyze bias across demographic groups
@@ -453,6 +479,7 @@ Statistical analysis was performed using Python scientific computing libraries. 
 **Research Question**: How well does RLCF generalize across legal domains?
 
 **Methodology**:
+
 1. Select tasks from different legal areas
 2. Compare expert agreement patterns
 3. Analyze domain-specific authority patterns
@@ -463,6 +490,7 @@ Statistical analysis was performed using Python scientific computing libraries. 
 **Research Question**: How do authority scores and consensus quality evolve over time?
 
 **Methodology**:
+
 1. Long-term deployment with consistent expert panel
 2. Track authority score trajectories
 3. Analyze learning and adaptation patterns
@@ -471,17 +499,20 @@ Statistical analysis was performed using Python scientific computing libraries. 
 ## Ethical Considerations
 
 ### Human Subjects Protection
+
 - IRB approval for all research involving human participants
 - Informed consent with clear explanation of data usage
 - Data anonymization and privacy protection
 - Right to withdraw and data deletion
 
 ### Expert Compensation
+
 - Fair compensation for expert time and expertise
 - Recognition of intellectual contributions
 - Academic credit where appropriate
 
 ### Data Sharing and Reproducibility
+
 - Public data sharing where ethically permissible
 - Code and configuration sharing for reproducibility
 - Documentation of limitations and potential biases
@@ -489,20 +520,23 @@ Statistical analysis was performed using Python scientific computing libraries. 
 ## Troubleshooting Common Issues
 
 ### Statistical Power Problems
+
 ```python
 def calculate_required_sample_size(effect_size, alpha=0.05, power=0.8):
     """Calculate required sample size for detecting effect."""
     from statsmodels.stats.power import ttest_power
-    
+  
     return ttest_power(effect_size, power, alpha, alternative='two-sided')
 ```
 
 ### Participation Bias
+
 - Monitor completion rates across demographic groups
 - Implement attention checks and quality controls
 - Use statistical corrections for non-response bias
 
 ### Technical Issues
+
 - Maintain detailed logs during data collection
 - Regular system health checks
 - Backup data collection procedures
@@ -510,6 +544,7 @@ def calculate_required_sample_size(effect_size, alpha=0.05, power=0.8):
 ---
 
 **Next Steps:**
+
 - [Research Scenario Configurations](../examples/configurations/research-scenarios.yaml)
 - [API Usage Examples](../examples/api-usage/)
 - [Statistical Analysis Templates](../examples/analysis/)

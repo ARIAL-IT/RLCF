@@ -6,35 +6,54 @@ from pydantic import (
     model_validator,
     create_model,
 )
-from typing import List, Optional, Dict, Any, Literal
+from typing import List, Optional, Dict, Any, Literal, Type
 import datetime
 
-from .models import TaskType, TaskStatus # Import TaskStatus
-from .config import task_settings  # Import the new task_settings
+from .models import TaskType, TaskStatus
+from .config import task_settings
 
+def build_pydantic_model_from_schema(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
+    """
+    Dynamically builds a Pydantic model from a JSON-like schema definition.
+    """
+    properties = schema.get("properties", {})
+    required_fields = schema.get("required", [])
+    
+    fields = {}
+    for field_name, field_props in properties.items():
+        field_type: Any
+        type_str = field_props.get("type")
 
-# Helper function to convert string type hints from YAML to actual Python types
-def _parse_type_string(type_str: str):
-    if type_str == "str":
-        return str
-    elif type_str == "int":
-        return int
-    elif type_str == "float":
-        return float
-    elif type_str.startswith("List["):
-        inner_type_str = type_str[len("List[") : -1]
-        return List[_parse_type_string(inner_type_str)]
-    elif type_str.startswith("Literal["):
-        values_str = type_str[len("Literal[") : -1]
-        values = [val.strip().strip("'\"") for val in values_str.split(",")]
-        return Literal[tuple(values)]
-    # Add more types as needed
-    return Any  # Fallback
+        if type_str == "string":
+            if "enum" in field_props:
+                field_type = Literal[tuple(field_props["enum"])]
+            else:
+                field_type = str
+        elif type_str == "number":
+            field_type = float
+        elif type_str == "integer":
+            field_type = int
+        elif type_str == "array":
+            items = field_props.get("items", {})
+            item_type_str = items.get("type", "string")
+            if item_type_str == "string":
+                field_type = List[str]
+            else:
+                field_type = List[Any]
+        else:
+            field_type = Any
+
+        if field_name in required_fields:
+            fields[field_name] = (field_type, ...)
+        else:
+            fields[field_name] = (Optional[field_type], None)
+            
+    return create_model(name, **fields)
 
 
 class TaskCreateFromYaml(BaseModel):
     task_type: str
-    input_data: Any  # Use Any for flexible JSON data
+    input_data: Dict[str, Any]
 
 
 class TaskListFromYaml(BaseModel):
@@ -46,25 +65,19 @@ class CredentialBase(BaseModel):
     value: str
     weight: float
 
-
 class CredentialCreate(CredentialBase):
     pass
-
 
 class Credential(CredentialBase):
     id: int
     user_id: int
-
     model_config = ConfigDict(from_attributes=True)
-
 
 class UserBase(BaseModel):
     username: str
 
-
 class UserCreate(UserBase):
     pass
-
 
 class User(UserBase):
     id: int
@@ -72,43 +85,31 @@ class User(UserBase):
     track_record_score: float
     baseline_credential_score: float
     credentials: List[Credential] = Field(default_factory=list)
-
     model_config = ConfigDict(from_attributes=True)
 
-
-# Moved Response and Feedback related schemas here to resolve forward reference
 class ResponseBase(BaseModel):
-    output_data: Dict[str, Any]  # Flexible output data
+    output_data: Dict[str, Any]
     model_version: str
-
 
 class ResponseCreate(ResponseBase):
     pass
-
 
 class Response(ResponseBase):
     id: int
     task_id: int
     generated_at: datetime.datetime
-    feedback: List["Feedback"] = Field(
-        default_factory=list
-    )  # Use string literal for forward reference
-
+    feedback: List["Feedback"] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)
-
 
 class FeedbackBase(BaseModel):
     accuracy_score: float
     utility_score: float
     transparency_score: float
-    feedback_data: Dict[str, Any]  # Will be validated dynamically
-
+    feedback_data: Dict[str, Any]
+    metadata: Optional[Dict[str, Any]] = None
 
 class FeedbackCreate(FeedbackBase):
     user_id: int
-    # Dynamic validation for feedback_data based on task_type (fetched from response)
-    # This validation will happen in the API endpoint, as it needs the response_id to get the task_type.
-
 
 class Feedback(FeedbackBase):
     id: int
@@ -118,17 +119,13 @@ class Feedback(FeedbackBase):
     community_helpfulness_rating: int
     consistency_score: Optional[float] = None
     submitted_at: datetime.datetime
-
     model_config = ConfigDict(from_attributes=True)
-
 
 class LegalTaskBase(BaseModel):
     task_type: TaskType
-    input_data: Dict[str, Any]  # Will be validated dynamically
-
+    input_data: Dict[str, Any]
 
 class LegalTaskCreate(LegalTaskBase):
-    # Dynamic validation for input_data based on task_type
     @model_validator(mode="before")
     @classmethod
     def validate_input_data(cls, data: Any) -> Any:
@@ -137,90 +134,66 @@ class LegalTaskCreate(LegalTaskBase):
             input_data = data.get("input_data")
 
             if task_type_str and input_data:
-                task_type_enum = TaskType(task_type_str)
-                task_schema_def = task_settings.task_types.get(task_type_enum.value)
-
-                if task_schema_def and task_schema_def.input_data:
-                    # Dynamically create a Pydantic model for input_data
-                    fields = {
-                        field_name: (_parse_type_string(type_str), ...)
-                        for field_name, type_str in task_schema_def.input_data.items()
-                    }
-                    DynamicInputModel = create_model(
-                        f"{task_type_enum.value}Input", **fields
-                    )
-
-                    try:
-                        DynamicInputModel.model_validate(input_data)
-                    except ValidationError as e:
-                        raise ValueError(
-                            f"Invalid input_data for task_type {task_type_str}: {e}"
-                        )
+                task_config = task_settings.task_types.get(task_type_str)
+                if task_config and task_config.input_data:
+                    # Basic validation: check if all required keys from task_config.input_data are present
+                    required_keys = set(task_config.input_data.keys())
+                    provided_keys = set(input_data.keys())
+                    missing_keys = required_keys - provided_keys
+                    if missing_keys:
+                        raise ValueError(f"Missing required input fields for task '{task_type_str}': {list(missing_keys)}")
+                    
+                    # Additional validation can be added here as needed
         return data
-
 
 class LegalTask(LegalTaskBase):
     id: int
     created_at: datetime.datetime
     status: str
     responses: List[Response] = Field(default_factory=list)
-
     model_config = ConfigDict(from_attributes=True)
-
-
-class FeedbackRatingBase(BaseModel):
-    helpfulness_score: int
-
-
-class FeedbackRatingCreate(FeedbackRatingBase):
-    user_id: int
-
-
-class FeedbackRating(FeedbackRatingBase):
-    id: int
-    feedback_id: int
-    user_id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class BiasReportBase(BaseModel):
-    task_id: int
-    user_id: int
-    bias_type: str
-    bias_score: float
-
-
-class BiasReport(BiasReportBase):
-    id: int
-    calculated_at: datetime.datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TaskAssignmentBase(BaseModel):
-    task_id: int
-    user_id: int
-    role: str = "evaluator"
-
-
-class TaskAssignmentCreate(TaskAssignmentBase):
-    pass
-
-
-class TaskAssignment(TaskAssignmentBase):
-    id: int
-    assigned_at: datetime.datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
 
 class TaskStatusUpdate(BaseModel):
     status: TaskStatus
 
+class TaskAssignmentCreate(BaseModel):
+    user_id: int
+    is_devils_advocate: bool = False
+
+class TaskAssignment(BaseModel):
+    task_id: int
+    user_id: int
+    is_devils_advocate: bool
+    assigned_at: datetime.datetime
 
 class BulkUserCreate(BaseModel):
-    usernames: List[str]
+    users: List[UserCreate]
+
+class FeedbackRatingCreate(BaseModel):
+    user_id: int
+    helpfulness_score: int = Field(..., ge=1, le=5)
+    reasoning: Optional[str] = None
+
+class FeedbackRating(BaseModel):
+    id: int
+    user_id: int
+    feedback_id: int
+    helpfulness_score: int
+    reasoning: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class BiasReport(BaseModel):
+    id: int
+    task_id: int
+    user_id: int
+    bias_type: str
+    bias_score: float
+    analysis_details: Optional[Dict[str, Any]] = None
+    created_at: datetime.datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class YamlContentRequest(BaseModel):
+    yaml_content: str
 
 class ExportRequest(BaseModel):
     task_type: TaskType

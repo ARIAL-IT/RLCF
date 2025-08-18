@@ -124,7 +124,7 @@ async def update_model_config(config: ModelConfig, api_key: str = Depends(get_ap
     """
     try:
         with open("rlcf_framework/model_config.yaml", "w") as f:
-            yaml.dump(config.dict(), f, sort_keys=False, indent=2)
+            yaml.dump(config.model_dump(), f, sort_keys=False, indent=2)
 
         # Ricarica la configurazione globale per renderla subito attiva
         from . import config
@@ -153,7 +153,7 @@ async def update_task_config(config: TaskConfig, api_key: str = Depends(get_api_
     """
     try:
         with open("rlcf_framework/task_config.yaml", "w") as f:
-            yaml.dump(config.dict(), f, sort_keys=False, indent=2)
+            yaml.dump(config.model_dump(), f, sort_keys=False, indent=2)
 
         # Ricarica la configurazione globale per renderla subito attiva
         from . import config
@@ -229,7 +229,7 @@ async def add_credential_to_user(
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    db_credential = models.Credential(**credential.dict(), user_id=user_id)
+    db_credential = models.Credential(**credential.model_dump(), user_id=user_id)
     db.add(db_credential)
     await db.commit()
 
@@ -376,27 +376,7 @@ async def update_task(
     return task
 
 
-@app.put("/tasks/{task_id}/status", tags=["Tasks"])
-async def update_task_status(
-    task_id: int,
-    status_update: dict,
-    db: AsyncSession = Depends(get_db),
-    api_key: str = Depends(get_api_key),
-):
-    """Update task status."""
-    result = await db.execute(select(models.LegalTask).filter(models.LegalTask.id == task_id))
-    task = result.scalar_one_or_none()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    new_status = status_update.get("status")
-    if new_status not in [status.value for status in models.TaskStatus]:
-        raise HTTPException(status_code=400, detail="Invalid status")
-    
-    task.status = new_status
-    await db.commit()
-    
-    return {"message": f"Task {task_id} status updated to {new_status}"}
+# REMOVED: Duplicate endpoint - keeping the one with proper schema validation below
 
 
 @app.delete("/tasks/{task_id}", tags=["Tasks"])
@@ -564,7 +544,7 @@ async def create_users_bulk(
     "/tasks/batch_from_yaml/", response_model=List[schemas.LegalTask], tags=["Tasks"]
 )
 async def create_legal_tasks_from_yaml(
-    yaml_content: str,
+    request: schemas.YamlContentRequest,
     db: AsyncSession = Depends(get_db),
     task_settings: TaskConfig = Depends(get_task_settings),
     api_key: str = Depends(get_api_key),  # Richiede API Key per sicurezza
@@ -574,7 +554,7 @@ async def create_legal_tasks_from_yaml(
     Il YAML deve contenere una lista di task, ognuno con 'task_type' e 'input_data'.
     """
     try:
-        data = yaml.safe_load(yaml_content)
+        data = yaml.safe_load(request.yaml_content)
         tasks_data = schemas.TaskListFromYaml(tasks=data.get("tasks", [])).tasks
     except (yaml.YAMLError, ValidationError) as e:
         raise HTTPException(status_code=400, detail=f"Invalid YAML or data format: {e}")
@@ -627,8 +607,15 @@ async def create_legal_tasks_from_yaml(
             )
             db.add(db_response)
 
-            await db.refresh(db_task)
-            created_tasks.append(db_task)
+            # Eagerly load the responses relationship to avoid greenlet errors
+            from sqlalchemy.orm import selectinload
+            result = await db.execute(
+                select(models.LegalTask)
+                .options(selectinload(models.LegalTask.responses))
+                .filter(models.LegalTask.id == db_task.id)
+            )
+            refreshed_task = result.scalar_one()
+            created_tasks.append(refreshed_task)
         except ValidationError as e:
             await db.rollback()  # Rollback any partial changes for this task
             raise HTTPException(
@@ -1192,7 +1179,7 @@ async def submit_feedback(
         )
 
     db_feedback = models.Feedback(
-        **feedback.dict(exclude={"feedback_data"}),
+        **feedback.model_dump(exclude={"feedback_data"}),
         feedback_data=feedback.feedback_data,
         response_id=response_id,
     )
@@ -1202,22 +1189,21 @@ async def submit_feedback(
 
     # Dynamic validation of feedback_data based on task_type
     task_type_enum = TaskType(db_response.task.task_type)
-    feedback_schema_def = task_settings.task_types.get(task_type_enum.value)
+    task_config = task_settings.task_types.get(task_type_enum.value)
 
-    if feedback_schema_def and feedback_schema_def.feedback_data:
-        fields = {
-            field_name: (schemas._parse_type_string(type_str), ...)
-            for field_name, type_str in feedback_schema_def.feedback_data.items()
-        }
-        DynamicFeedbackModel = create_model(
-            f"{task_type_enum.value}FeedbackData", **fields
-        )
+    if task_config and task_config.feedback_data:
         try:
-            DynamicFeedbackModel.model_validate(feedback.feedback_data)
+            FeedbackModel = schemas.build_pydantic_model_from_schema(
+                f"{task_type_enum.value}FeedbackModel",
+                task_config.feedback_data
+            )
+            FeedbackModel.model_validate(feedback.feedback_data)
         except ValidationError as e:
+            # Provide detailed error messages back to the client
+            error_details = e.errors()
             raise HTTPException(
                 status_code=422,
-                detail=f"Invalid feedback_data for task_type {task_type_enum.value}: {e}",
+                detail=f"Invalid feedback_data for task_type {task_type_enum.value}: {error_details}",
             )
 
     quality_score = await authority_module.calculate_quality_score(db, db_feedback)
@@ -1251,7 +1237,7 @@ async def rate_feedback(
     if not db_feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
 
-    db_rating = models.FeedbackRating(**rating.dict(), feedback_id=feedback_id)
+    db_rating = models.FeedbackRating(**rating.model_dump(exclude={"reasoning"}), feedback_id=feedback_id)
     db.add(db_rating)
     await db.commit()
     await db.refresh(db_rating)
@@ -1429,6 +1415,98 @@ async def get_available_models():
                 "name": "Llama 3 70B Instruct",
                 "description": "Open-source alternative with good performance",
                 "recommended_for": ["general_legal_tasks"]
-            }
-        ]
-    }
+                }
+    ]
+}
+
+
+# ============================================================================
+# TODO: MISSING ENDPOINTS FOR RESEARCH FUNCTIONALITY
+# ============================================================================
+
+# TODO: Authority Management Endpoints
+# These endpoints are essential for research on authority scoring and user management
+
+# @app.post("/authority/calculate/{user_id}", tags=["Authority Management"])
+# async def calculate_user_authority(
+#     user_id: int, 
+#     recent_performance: float,
+#     db: AsyncSession = Depends(get_db)
+# ):
+#     """Calculate and update user authority score based on recent performance."""
+#     # Implementation: Call authority_module.update_authority_score()
+#     pass
+
+# @app.get("/authority/stats", tags=["Authority Management"])  
+# async def get_authority_statistics(db: AsyncSession = Depends(get_db)):
+#     """Get authority score distribution and statistics for research analysis."""
+#     # Implementation: Query User table, calculate statistics
+#     pass
+
+# TODO: Feedback Query Endpoints
+# Essential for research on feedback patterns and user behavior
+
+# @app.get("/feedback/task/{task_id}", response_model=List[schemas.Feedback], tags=["Feedback"])
+# async def get_task_feedback(task_id: int, db: AsyncSession = Depends(get_db)):
+#     """Get all feedback for a specific task."""
+#     # Implementation: Query Feedback joined with Response filtered by task_id
+#     pass
+
+# @app.get("/feedback/user/{user_id}", response_model=List[schemas.Feedback], tags=["Feedback"])
+# async def get_user_feedback(user_id: int, db: AsyncSession = Depends(get_db)):
+#     """Get all feedback submitted by a specific user."""
+#     # Implementation: Query Feedback filtered by user_id
+#     pass
+
+# TODO: Aggregation and Analysis Endpoints
+# Critical for research on disagreement quantification and bias analysis
+
+# @app.post("/aggregation/run/{task_id}", tags=["Aggregation"])
+# async def run_task_aggregation(
+#     task_id: int,
+#     db: AsyncSession = Depends(get_db),
+#     api_key: str = Depends(get_api_key)
+# ):
+#     """Manually trigger aggregation for a specific task."""
+#     # Implementation: Call aggregation_engine.aggregate_with_uncertainty()
+#     pass
+
+# @app.get("/aggregation/disagreement/{task_id}", tags=["Aggregation"])
+# async def get_disagreement_analysis(task_id: int, db: AsyncSession = Depends(get_db)):
+#     """Get detailed disagreement analysis for research purposes."""
+#     # Implementation: Call aggregation_engine functions for disagreement metrics
+#     pass
+
+# @app.get("/bias/task/{task_id}/report", tags=["Bias Analysis"])
+# async def get_comprehensive_bias_report(task_id: int, db: AsyncSession = Depends(get_db)):
+#     """Generate comprehensive bias report for research analysis."""
+#     # Implementation: Call bias_analysis.calculate_total_bias()
+#     pass
+
+# TODO: Advanced Export Endpoints
+# Important for research data publication and external analysis
+
+# @app.get("/export/tasks", tags=["Export"])
+# async def export_tasks_filtered(
+#     format: str = "csv",
+#     task_type: Optional[str] = None,
+#     start_date: Optional[str] = None,
+#     end_date: Optional[str] = None,
+#     include_feedback: bool = False,
+#     api_key: str = Depends(get_api_key)
+# ):
+#     """Export tasks with advanced filtering for research purposes."""
+#     # Implementation: Query tasks with filters, export in specified format
+#     pass
+
+# @app.get("/export/scientific", tags=["Export"])
+# async def export_scientific_dataset(
+#     api_key: str = Depends(get_api_key)
+# ):
+#     """Export complete dataset in academic publication format."""
+#     # Implementation: Generate comprehensive research dataset with:
+#     # - Statistical summaries
+#     # - Bias analysis reports  
+#     # - Authority score distributions
+#     # - Uncertainty preservation metrics
+#     pass

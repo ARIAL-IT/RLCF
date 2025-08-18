@@ -86,6 +86,6 @@ Documentation improvements are welcome! Please see [Contributing Guidelines](dev
 
 ---
 
-*Last updated: $(date)*  
-*Framework version: 1.0.0*  
-*Documentation build: Latest*
+*Last updated: August 17, 2025*  
+*Framework version: Alpha 0.0.1*  
+*Documentation build: Alpha Release*

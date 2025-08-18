@@ -4,9 +4,17 @@
 
 The RLCF framework implements a layered, asynchronous architecture designed for high-performance legal AI evaluation and training. The system maps theoretical concepts directly to software components while maintaining academic rigor and production readiness.
 
-## Architecture Diagram
+## Architecture Diagram (Alpha 0.0.1)
 
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│                       React Frontend Layer                     │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │ TaskFormFactory │  │ EvaluationWizard│  │   UI Components │  │
+│  │  (9 Task Types) │  │  (UX Enhanced)  │  │  (TailwindCSS)  │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │ (HTTP/REST)
 ┌─────────────────────────────────────────────────────────────────┐
 │                         FastAPI Async Layer                    │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
@@ -18,8 +26,8 @@ The RLCF framework implements a layered, asynchronous architecture designed for 
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Async Service Layer                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │  Task Service   │  │ Post Processing │  │ Bias Analysis   │  │
-│  │  (Orchestration)│  │  (Consistency)  │  │  (Detection)    │  │
+│  │  Task Service   │  │ Post Processing │  │ OpenRouter AI   │  │
+│  │  (Orchestration)│  │  (Consistency)  │  │   Service       │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                               │

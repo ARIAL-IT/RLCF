@@ -55,7 +55,17 @@ export function useBatchCreateTasksFromYaml() {
       toast.success('Batch tasks created successfully!');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create tasks from YAML');
+      let errorMessage = 'Failed to create tasks from YAML.';
+      if (error?.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail.map((e: any) => `Field: '${e.loc.join('.')}', Error: ${e.msg}`).join('; ');
+        } else {
+          errorMessage = JSON.stringify(error.response.data.detail);
+        }
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      toast.error(`Batch creation failed: ${errorMessage}`, { duration: 10000 });
     },
   });
 }

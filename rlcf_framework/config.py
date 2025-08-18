@@ -1,6 +1,6 @@
 import yaml
 from pydantic import BaseModel, Field
-from typing import Dict, Literal, List
+from typing import Dict, Literal, List, Any, Union
 import os
 
 
@@ -29,10 +29,10 @@ class ModelConfig(BaseModel):
 
 
 class TaskSchemaDefinition(BaseModel):
-    # Using Any for now, will be parsed into actual types later
-    # This represents the structure like {"field_name": "str", "another_field": "List[int]"}
-    input_data: Dict[str, str]
-    feedback_data: Dict[str, str]
+    # Schema definition supporting various Python types
+    # YAML can contain: str, int, float, bool, List[str], Dict[str, float], etc.
+    input_data: Dict[str, Union[str, Any]]
+    feedback_data: Dict[str, Union[str, Any]]
     ground_truth_keys: List[str] = Field(default_factory=list)
 
 
